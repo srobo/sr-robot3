@@ -22,7 +22,7 @@ check_untyped_defs = true
 [tool.isort]
 atomic = true
 balanced_wrapping = true
-known_first_party = "sbot"
+known_first_party = "sr.robot"
 
 # hanging grid grouped indent style wrapping
 multi_line_output = 5
@@ -38,15 +38,15 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "sbot/_version.py"
+write_to = "sr/robot/_version.py"
 
 [tool.setuptools]
-packages = ["sbot"]
+packages = ["sr.robot"]
 
 [project]
-name = "sbot"
-description = "The robot API for the Smallpeice summer school"
-authors = [{name = "SourceBots", email =  "hello@sourcebots.co.uk"}]
+name = "sr.robot"
+description = "Student Robotics API for Python 3"
+authors = [{name = "Student Robotics", email =  "kit-team@studentrobotics.org"}]
 readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
@@ -65,9 +65,9 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/sourcebots/sbot"
-Homepage = "https://sourcebots.co.uk"
-Documentation = "https://docs.sourcebots.co.uk"
+Repository = "https://github.com/srobo/sr-robot"
+Homepage = "https://studentrobotics.org"
+Documentation = "https://docs.studentrobotics.org"
 
 [project.optional-dependencies]
 dev = [

@@ -1,4 +1,4 @@
-"""The main entry point for the sbot package."""
+"""The main entry point for the sr-robot package."""
 from __future__ import annotations
 
 import itertools
