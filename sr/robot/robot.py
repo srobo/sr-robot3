@@ -10,19 +10,14 @@ from typing import Mapping
 from . import game_specific, metadata, timeout
 from ._version import __version__
 from .arduino import Arduino
+from .astoria import Metadata, RobotMode, init_astoria_mqtt
 from .camera import AprilCamera, _setup_cameras
 from .exceptions import MetadataNotReadyError
 from .logging import log_to_debug, setup_logging
-from .metadata import Metadata
 from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
 from .servo_board import ServoBoard
 from .utils import obtain_lock, singular
-
-try:
-    from .mqtt import MQTT_VALID, MQTTClient, get_mqtt_variables
-except ImportError:
-    MQTT_VALID = False
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +38,7 @@ class Robot:
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
-        '_arduinos', '_cameras', '_mqttc',
+        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path',
     )
 
     def __init__(
@@ -59,7 +54,10 @@ class Robot:
 
         setup_logging(debug, trace_logging)
 
-        logger.info(f"SourceBots API v{__version__}")
+        logger.info(f"sr.robot version {__version__}")
+
+        self._mqtt, self._astoria = init_astoria_mqtt()
+        self._code_path: Path | None = None
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -115,16 +113,10 @@ class Robot:
         These cameras are used for AprilTag detection and provide location data of
         markers in its field of view.
         """
-        if MQTT_VALID:
-            # get the config from env vars
-            mqtt_config = get_mqtt_variables()
-            self._mqttc = MQTTClient.establish(**mqtt_config)
-            self._cameras = MappingProxyType(_setup_cameras(
-                game_specific.MARKER_SIZES,
-                self._mqttc.wrapped_publish,
-            ))
-        else:
-            self._cameras = MappingProxyType(_setup_cameras(game_specific.MARKER_SIZES))
+        self._cameras = MappingProxyType(_setup_cameras(
+            game_specific.MARKER_SIZES,
+            self._mqtt.wrapped_publish,  # TODO update UI to receive camera data as JSON
+        ))
 
     def _log_connected_boards(self) -> None:
         """
