@@ -57,7 +57,7 @@ class MockSerialWrapper:
         self._baudrate = baud
         return self
 
-    def query(self, request: str | None) -> str:
+    def query(self, request: str | None, endl: str = '\n') -> str:
         """
         Mocks sending a command and returning the response.
 
@@ -73,9 +73,9 @@ class MockSerialWrapper:
         self.request_index += 1
         return response
 
-    def write(self, request: str) -> None:
+    def write(self, request: str, endl: str = '\n') -> None:
         """Send a command without waiting for a response."""
-        _ = self.query(request)
+        _ = self.query(request, endl)
 
     def set_identity(self, identity: BoardIdentity) -> None:
         """Set the identity of the board."""

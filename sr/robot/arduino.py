@@ -93,6 +93,8 @@ class Arduino(Board):
 
         self._identity = self.identify()
         # Arduino board type is not validated to allow for custom firmwares
+        if not self._identity.board_type.startswith('SR'):
+            raise IncorrectBoardError(self._identity.board_type, 'SR*')
         self._serial.set_identity(self._identity)
 
     @classmethod

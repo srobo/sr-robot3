@@ -5,8 +5,8 @@ from math import atan2, hypot
 from typing import NamedTuple, Tuple, cast
 
 # import numpy as np
-from april_vision import Orientation as AprilOrientation
 from april_vision import Marker as AprilMarker
+from april_vision import Orientation as AprilOrientation
 from numpy.typing import NDArray
 
 
