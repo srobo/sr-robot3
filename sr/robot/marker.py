@@ -47,6 +47,9 @@ class Marker(NamedTuple):
     Wrapper of a marker detection with axis and rotation calculated.
     """
 
+    # TODO API review
+    # - Add horizontal and vertical angle aliases for azimuth and elevation
+    # - move to position sub-dataclass?
     id: int
     size: int
     pixel_corners: PixelCorners
