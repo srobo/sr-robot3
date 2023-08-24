@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-GAME_LENGTH = 150  # seconds
-
+# TODO: Update this for 2023
 # Marker sizes are in mm
 MARKER_SIZES: dict[Iterable[int], int] = {
     range(28): 100,  # 0 - 27 for arena boundary

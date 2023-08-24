@@ -134,7 +134,7 @@ class Robot:
         """
         self._cameras = MappingProxyType(_setup_cameras(
             game_specific.MARKER_SIZES,
-            self._mqtt.wrapped_publish,  # TODO update UI to receive camera data as JSON
+            self._mqtt.wrapped_publish,
         ))
 
     def _log_connected_boards(self) -> None:
