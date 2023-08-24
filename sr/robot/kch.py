@@ -1,8 +1,9 @@
 """KCH Driver."""
+from __future__ import annotations
+
 import atexit
 import warnings
 from enum import IntEnum, unique
-from typing import List, Tuple
 
 try:
     import RPi.GPIO as GPIO  # isort: ignore
@@ -28,12 +29,12 @@ class RobotLEDs(IntEnum):
     USER_C_BLUE = 17
 
     @classmethod
-    def all_leds(cls) -> List[int]:
+    def all_leds(cls) -> list[int]:
         """Get all LEDs."""
         return [c.value for c in cls]
 
     @classmethod
-    def user_leds(cls) -> List[Tuple[int, int, int]]:
+    def user_leds(cls) -> list[tuple[int, int, int]]:
         """Get the user programmable LEDs."""
         return [
             (cls.USER_A_RED, cls.USER_A_GREEN, cls.USER_A_BLUE),
@@ -123,7 +124,7 @@ class LED:
     """User programmable LED."""
     __slots__ = ('_led',)
 
-    def __init__(self, led: Tuple[int, int, int]):
+    def __init__(self, led: tuple[int, int, int]):
         self._led = led
 
     @property
