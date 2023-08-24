@@ -8,7 +8,7 @@ from typing import NamedTuple
 
 from serial.tools.list_ports import comports
 
-from .exceptions import BoardDisconnectionError, IncorrectBoardError
+from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
 from .utils import (
@@ -88,6 +88,31 @@ class ServoBoard(Board):
         atexit.register(self._cleanup)
 
     @classmethod
+    def _get_valid_board(
+        cls,
+        serial_port: str,
+        initial_identity: BoardIdentity | None = None,
+    ) -> None | ServoBoard:
+        try:
+            board = cls(serial_port, initial_identity)
+        except IncorrectBoardError as err:
+            logger.warning(
+                f"Board returned type {err.returned_type!r}, "
+                f"expected {err.expected_type!r}. Ignoring this device")
+            return None
+        except Exception:
+            if initial_identity is not None and initial_identity.board_type == 'manual':
+                logger.warning(
+                    f"Manually specified servo board at port {serial_port!r}, "
+                    "could not be identified. Ignoring this device")
+            else:
+                logger.warning(
+                    f"Found servo board-like serial port at {serial_port!r}, "
+                    "but it could not be identified. Ignoring this device")
+            return None
+        return board
+
+    @classmethod
     def _get_supported_boards(
         cls, manual_boards: list[str] | None = None,
     ) -> MappingProxyType[str, 'ServoBoard']:
@@ -108,18 +133,9 @@ class ServoBoard(Board):
                 # Create board identity from USB port info
                 initial_identity = get_USB_identity(port)
 
-                try:
-                    board = ServoBoard(port.device, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Found servo board-like serial port at {port.device!r}, "
-                        "but it could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(port.device, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
 
         # Add any manually specified boards
@@ -131,18 +147,9 @@ class ServoBoard(Board):
                     asset_tag=manual_port,
                 )
 
-                try:
-                    board = ServoBoard(manual_port, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Manually specified servo board at port {manual_port!r}, "
-                        "could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(manual_port, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
         return MappingProxyType(boards)
 

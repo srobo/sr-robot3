@@ -6,6 +6,7 @@ This test uses a mock serial wrapper to simulate the connection to the arduino b
 from __future__ import annotations
 
 import re
+import logging
 from typing import NamedTuple
 
 import pytest
@@ -250,6 +251,42 @@ def test_arduino_board_invalid_identity(monkeypatch) -> None:
         match=re.escape("Board returned type 'TestBoard', expected 'Arduino'"),
     ):
         Arduino('test://')
+
+
+def test_arduino_board_old_sr_identity(monkeypatch, caplog) -> None:
+    """
+    Test that we raise an error if the arduino board returns an old style identity.
+    """
+    serial_wrapper = MockSerialWrapper([
+        ("*IDN?", ""),  # Called by Arduino.__init__
+    ])
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+
+    with caplog.at_level(logging.WARNING):
+        Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+
+    assert caplog.records[0].message == (
+        "Manually specified Arduino at port 'test://',"
+        " could not be identified. Ignoring this device"
+    )
+
+
+def test_arduino_board_old_sourcebots_identity(monkeypatch, caplog) -> None:
+    """
+    Test that we raise an error if the arduino board returns an old style identity.
+    """
+    serial_wrapper = MockSerialWrapper([
+        ("*IDN?", "Error, unknown command: *IDN?"),  # Called by Arduino.__init__
+    ])
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+
+    with caplog.at_level(logging.WARNING):
+        Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+
+    assert caplog.records[0].message == (
+        "Manually specified Arduino at port 'test://',"
+        " could not be identified. Ignoring this device"
+    )
 
 
 @pytest.mark.hardware
