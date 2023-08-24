@@ -116,7 +116,7 @@ class SerialWrapper:
         self._disconnect()
 
     @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError))
-    def query(self, data: str) -> str:
+    def query(self, data: str | None) -> str:
         """
         Send a command to the board and return the response.
 
@@ -139,9 +139,10 @@ class SerialWrapper:
                     ))
 
             try:
-                logger.log(TRACE, f'Serial write - {data!r}')
-                cmd = data + '\n'
-                self.serial.write(cmd.encode())
+                if data is not None:
+                    logger.log(TRACE, f'Serial write - {data!r}')
+                    cmd = data + '\n'
+                    self.serial.write(cmd.encode())
 
                 response = self.serial.readline()
                 try:
