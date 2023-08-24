@@ -110,7 +110,7 @@ class Robot:
         manual_servoboards = manual_boards.get(ServoBoard.get_board_type(), [])
         manual_arduinos = manual_boards.get(Arduino.get_board_type(), [])
 
-        self._kch = KCH()  # TODO kch API review
+        self._kch = KCH()
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
         # TODO handling ignored arduinos
