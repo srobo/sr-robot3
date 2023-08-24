@@ -116,7 +116,7 @@ class SerialWrapper:
         self._disconnect()
 
     @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError))
-    def query(self, data: str | None) -> str:
+    def query(self, data: str | None, *, endl: str = '\n') -> str:
         """
         Send a command to the board and return the response.
 
@@ -141,7 +141,7 @@ class SerialWrapper:
             try:
                 if data is not None:
                     logger.log(TRACE, f'Serial write - {data!r}')
-                    cmd = data + '\n'
+                    cmd = data + endl
                     self.serial.write(cmd.encode())
 
                 response = self.serial.readline()
@@ -180,7 +180,7 @@ class SerialWrapper:
 
             return response_str
 
-    def write(self, data: str) -> None:
+    def write(self, data: str, *, endl: str = '\n') -> None:
         """
         Send a command to the board that does not require a response.
 
@@ -188,7 +188,7 @@ class SerialWrapper:
         :raises RuntimeError: If the board returns a NACK response,
             the firmware's error message is raised.
         """
-        _ = self.query(data)
+        _ = self.query(data, endl=endl)
 
     def _connect(self) -> bool:
         """
