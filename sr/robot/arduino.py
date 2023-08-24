@@ -123,7 +123,9 @@ class Arduino(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: list[str] | None = None,
+        cls,
+        manual_boards: list[str] | None = None,
+        ignored_serials: list[str] | None = None,
     ) -> MappingProxyType[str, Arduino]:
         """
         Discover the connected Arduinos, by matching the USB descriptor to SUPPORTED_VID_PIDS.
@@ -133,11 +135,15 @@ class Arduino(Board):
         :return: A mapping of board serial numbers to Arduinos
         """
         boards = {}
+        if ignored_serials is None:
+            ignored_serials = []
         serial_ports = comports()
         for port in serial_ports:
             if (port.vid, port.pid) in SUPPORTED_VID_PIDS:
                 # Create board identity from USB port info
                 initial_identity = get_USB_identity(port)
+                if initial_identity.asset_tag in ignored_serials:
+                    continue
 
                 if (board := cls._get_valid_board(port.device, initial_identity)) is None:
                     continue
