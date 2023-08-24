@@ -10,9 +10,9 @@ from typing import NamedTuple
 
 import pytest
 
-from sbot.arduino import AnalogPins, Arduino, GPIOPinMode
-from sbot.exceptions import IncorrectBoardError
-from sbot.utils import BoardIdentity, singular
+from sr.robot.arduino import AnalogPins, Arduino, GPIOPinMode
+from sr.robot.exceptions import IncorrectBoardError
+from sr.robot.utils import BoardIdentity, singular
 
 from .conftest import MockSerialWrapper
 
@@ -29,7 +29,7 @@ def arduino_serial(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
         ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Called by Arduino.__init__
     ])
-    monkeypatch.setattr('sbot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
     arduino_board = Arduino('test://', initial_identity=BoardIdentity(asset_tag='TEST123'))
 
     yield MockArduino(serial_wrapper, arduino_board)
@@ -227,8 +227,8 @@ def test_arduino_board_discovery(monkeypatch) -> None:
         ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Manually added board
         ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # Manual invalid board
     ])
-    monkeypatch.setattr('sbot.arduino.SerialWrapper', serial_wrapper)
-    monkeypatch.setattr('sbot.arduino.comports', mock_comports)
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot.arduino.comports', mock_comports)
 
     arduino_boards = Arduino._get_supported_boards(manual_boards=['test://2', 'test://4'])
     assert len(arduino_boards) == 2
@@ -243,7 +243,7 @@ def test_arduino_board_invalid_identity(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
         ("*IDN?", "Student Robotics:TestBoard:TEST123:4.3"),  # Called by Arduino.__init__
     ])
-    monkeypatch.setattr('sbot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
 
     with pytest.raises(
         IncorrectBoardError,

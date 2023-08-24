@@ -1,4 +1,4 @@
-"""Exceptions used by the sbot package."""
+"""Exceptions used by the sr-robot package."""
 
 
 class MetadataKeyError(KeyError):

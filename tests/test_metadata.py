@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pytest import raises
 
-from sbot.metadata import METADATA_ENV_VAR, MetadataKeyError, load
+from sr.robot.metadata import METADATA_ENV_VAR, MetadataKeyError, load
 
 
 def test_metadata_env_var() -> None:

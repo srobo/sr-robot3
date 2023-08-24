@@ -1,1 +1,1 @@
-"""Tests for the sbot module."""
+"""Tests for the sr-robot module."""
