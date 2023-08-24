@@ -7,7 +7,7 @@ from time import sleep
 from types import MappingProxyType
 from typing import Mapping
 
-from . import game_specific, metadata, timeout
+from . import game_specific, timeout
 from ._version import __version__
 from .arduino import Arduino
 from .astoria import Metadata, RobotMode, init_astoria_mqtt
@@ -244,19 +244,47 @@ class Robot:
 
     @property
     @log_to_debug
-    def metadata(self) -> Metadata:
+    def metadata(self) -> Metadata:  # TODO maybe remove this
         """
         Fetch the robot's current metadata.
 
-        See the metadata module for more information.
-
         :raises MetadataNotReadyError: If the start button has not been pressed yet
-        :return: The metadata dictionary
+        :return: The metadata class as returned by astmetad
         """
         if self._metadata is None:
             raise MetadataNotReadyError()
         else:
             return self._metadata
+
+    def print_wifi_details(self) -> None:
+        """
+        Prints the current WiFi details stored in robot-settings.toml.
+
+        :raises MetadataNotReadyError: If the start button has not been pressed yet
+        """
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+
+        if not self._metadata.wifi_enabled:
+            logger.warn("Could not print WiFi details - WiFi is not enabled")
+            return
+        logger.info("WiFi credentials:")
+        logger.info(f"SSID: {self._metadata.wifi_ssid}")
+        logger.info(f"Password: {self._metadata.wifi_psk}")
+
+    @property
+    @log_to_debug
+    def arena(self) -> str:
+        """
+        Get the arena that the robot is in.
+
+        :return: The robot's arena
+        :raises MetadataNotReadyError: If the start button has not been pressed yet
+        """
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._metadata.arena
 
     @property
     @log_to_debug
@@ -267,18 +295,46 @@ class Robot:
         :return: The robot's zone number
         :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
-        return self.metadata['zone']
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._metadata.zone
 
     @property
     @log_to_debug
-    def is_competition(self) -> bool:
+    def mode(self) -> RobotMode:
         """
-        Find out if the robot is in competition mode.
+        Get the mode that the robot is in.
 
-        :return: Whether the robot is in competition mode
+        :return: The robot's current mode
         :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
-        return self.metadata['is_competition']
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._metadata.mode
+
+    @property
+    def usbkey(self) -> Path:
+        """
+        The path of the USB code drive.
+
+        :returns: path to the mountpoint of the USB code drive.
+        :raises MetadataNotReadyError: If the start button has not been pressed yet
+        """
+        if self._code_path is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._code_path
+
+    @property
+    def is_simulated(self) -> bool:
+        """
+        Determine whether the robot is simulated.
+
+        :returns: True if the robot is simulated. False otherwise.
+        """
+        return False
 
     @log_to_debug
     def wait_start(self) -> None:
@@ -292,18 +348,22 @@ class Robot:
         """
         # ignore previous button presses
         _ = self.power_board._start_button()
+        _ = self._astoria.get_start_button_pressed()
         logger.info('Waiting for start button.')
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
 
-        while not self.power_board._start_button():
-            sleep(0.1)
-        logger.info("Start button pressed.")
+        while not (
+            self.power_board._start_button() or self._astoria.get_start_button_pressed()
+        ):
+            time.sleep(0.1)
+        logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
 
-        if self._metadata is None:
-            self._metadata = metadata.load()
+        # Load the latest metadata that we have received over MQTT
+        self._metadata = self._astoria.fetch_current_metadata()
+        self._code_path = self._astoria.fetch_mount_path()
 
-        if self.is_competition:
-            timeout.kill_after_delay(game_specific.GAME_LENGTH)
+        if self._metadata.game_timeout is not None:
+            timeout.kill_after_delay(self._metadata.game_timeout)
