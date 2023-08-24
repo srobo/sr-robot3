@@ -66,6 +66,7 @@ class Colour():
 
 class KCH:
     """KCH Board."""
+    __slots__ = ('_leds', '_pwm')
 
     def __init__(self) -> None:
         if HAS_HAT:
@@ -77,6 +78,7 @@ class KCH:
                 # cause a warning as the gpio are already initialized, we can
                 # suppress this as we know the reason behind the warning
                 GPIO.setup(RobotLEDs.all_leds(), GPIO.OUT, initial=GPIO.LOW)
+            self._pwm: GPIO.PWM | None = None
         self._leds = LEDs(RobotLEDs.user_leds())
 
         # We are not running cleanup so the LED state persists after the code completes,
@@ -97,7 +99,17 @@ class KCH:
     def start(self, value: bool) -> None:
         """Set the state of the start LED."""
         if HAS_HAT:
+            if self._pwm:
+                # stop any flashing the LED is doing
+                self._pwm.stop()
+                self._pwm = None
             GPIO.output(RobotLEDs.START, GPIO.HIGH if value else GPIO.LOW)
+
+    def flash_start(self) -> None:
+        """Set the start LED flashing at 1Hz."""
+        if HAS_HAT:
+            self._pwm = GPIO.PWM(RobotLEDs.START, 1)
+            self._pwm.start(50)
 
     @property
     def leds(self) -> 'LEDs':

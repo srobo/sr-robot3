@@ -386,8 +386,7 @@ class Robot:
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
-        # TODO flash kch start LED
-        self.kch.start = True
+        self.kch.flash_start()
 
         while not (
             self.power_board._start_button() or self._astoria.get_start_button_pressed()
