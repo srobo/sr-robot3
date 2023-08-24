@@ -1,5 +1,6 @@
 """Test that the module works."""
 import logging
+import signal
 import socket
 
 import pytest
@@ -118,6 +119,9 @@ def test_robot(monkeypatch, caplog) -> None:
     r.wait_start()
 
     assert r.zone == 0
+
+    # Check _something_ is configured to handle SIGTERM
+    assert signal.getsignal(signal.SIGTERM) != signal.SIG_DFL
 
 
 @pytest.hookimpl(trylast=True)

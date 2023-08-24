@@ -20,12 +20,10 @@ from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
 from .raw_serial import RawSerial, RawSerialDevice
 from .servo_board import ServoBoard
-from .utils import obtain_lock, singular
+from .utils import ensure_atexit_on_term, obtain_lock, singular
 
 logger = logging.getLogger(__name__)
 
-
-# TODO check atexit with removing USB/sigterm
 
 class Robot:
     """
@@ -60,6 +58,7 @@ class Robot:
         self._metadata: Metadata | None = None
 
         setup_logging(debug, trace_logging)
+        ensure_atexit_on_term()
 
         logger.info(f"sr.robot version {__version__}")
 
