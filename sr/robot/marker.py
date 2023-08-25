@@ -106,7 +106,7 @@ class Marker(NamedTuple):
             raise ValueError("Marker lacks pose information")
 
         _cartesian = cls._standardise_tvec(marker.tvec.flatten())
-        _orientation = AprilOrientation.from_rvec_matrix(marker.rvec)
+        _orientation = AprilOrientation.from_rvec_matrix(marker.rvec, aruco_orientation=False)
 
         return cls(
             id=marker.id,
