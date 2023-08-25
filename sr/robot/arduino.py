@@ -199,6 +199,30 @@ class Arduino(Board):
         """
         return self._pins
 
+    @log_to_debug
+    def command(self, command: str) -> str:
+        """
+        Send a command to the board.
+
+        :param command: The command to send to the board.
+        :return: The response from the board.
+        """
+        return self._serial.query(command, endl='')
+
+    def map_pin_number(self, pin_number: int) -> str:
+        """
+        Map the pin number to the the serial format.
+        Pin numbers are sent as printable ASCII characters, with 0 being 'a'.
+
+        :return: The pin number in the serial format.
+        :raises ValueError: If the pin number is invalid.
+        """
+        try:  # bounds check
+            self.pins[pin_number]._check_if_disabled()
+        except (IndexError, IOError):
+            raise ValueError("Invalid pin provided") from None
+        return chr(pin_number + ord('a'))
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
 

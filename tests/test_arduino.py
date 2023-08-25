@@ -60,7 +60,23 @@ def test_arduino_board_identify(arduino_serial: MockArduino) -> None:
     assert arduino_board.identify().asset_tag == "TEST123"
 
 
-@pytest.mark.skip(reason="Needs to be updated for old arduino firmware")
+def test_arduino_custom_command(arduino_serial: MockArduino) -> None:
+    """
+    Test that we can send a custom command to the arduino board.
+
+    This test uses the mock serial wrapper to simulate the arduino.
+    """
+    arduino = arduino_serial.arduino_board
+    arduino_serial.serial_wrapper._add_responses([
+        ("test:f", "ACK123"),
+    ])
+
+    # Test that we can send a custom command
+    pin_str = arduino.map_pin_number(5)
+    assert pin_str == "f"  # zero indexed from 'a'
+    assert arduino.command(f"test:{pin_str}") == "ACK123"
+
+
 def test_arduino_pins(arduino_serial: MockArduino) -> None:
     """
     Test the arduino pins properties and methods.
