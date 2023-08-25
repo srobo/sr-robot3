@@ -105,7 +105,7 @@ class Marker(NamedTuple):
         if marker.rvec is None or marker.tvec is None:
             raise ValueError("Marker lacks pose information")
 
-        _cartesian = cls._standardise_tvec(marker.tvec)
+        _cartesian = cls._standardise_tvec(marker.tvec.flatten())
         _orientation = AprilOrientation.from_rvec_matrix(marker.rvec)
 
         return cls(
