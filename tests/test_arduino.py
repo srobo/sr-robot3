@@ -85,18 +85,10 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     """
     arduino = arduino_serial.arduino_board
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:2:MODE:SET:OUTPUT", "ACK"),
-        ("PIN:10:MODE:SET:INPUT_PULLUP", "ACK"),
-        ("PIN:14:MODE:SET:INPUT", "ACK"),
+        ("oc", ""),  # pin 2 is set to output
+        ("pk", ""),  # pin 10 is set to input pullup
+        ("io", ""),  # pin 14 is set to input
     ])
-
-    # Test that we can get the mode of a pin
-    assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
-    assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
-    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
 
     with pytest.raises(IOError):
         arduino.pins[2].mode = 1
@@ -106,51 +98,46 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     arduino.pins[10].mode = GPIOPinMode.INPUT_PULLUP
     arduino.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
 
+    # Test that we can get the mode of a pin
+    assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
+    assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
+    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
+
     # Test that we can get the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before digital value
-        ("PIN:2:DIGITAL:GET?", "1"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:10:DIGITAL:GET?", "0"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:DIGITAL:GET?", "1"),
+        ("rc", "h"),  # pin 2 read
+        ("rk", "l"),  # pin 10 read
+        ("ro", "h"),  # pin 14 read
     ])
-    assert arduino.pins[2].digital_value is True
-    assert arduino.pins[10].digital_value is False
-    assert arduino.pins[AnalogPins.A0].digital_value is True
+    assert arduino.pins[2].digital_read() is True
+    assert arduino.pins[10].digital_read() is False
+    assert arduino.pins[AnalogPins.A0].digital_read() is True
 
     # Test that we can set the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before digital value
-        ("PIN:2:DIGITAL:SET:1", "ACK"),
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:2:DIGITAL:SET:0", "ACK"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:MODE:GET?", "INPUT"),
+        ("hc", "ACK"),  # pin 2 write
+        ("lc", "ACK"),  # pin 2 write
     ])
-    arduino.pins[2].digital_value = True
-    arduino.pins[2].digital_value = False
+    arduino.pins[2].digital_write(True)
+    arduino.pins[2].digital_write(False)
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
-        arduino.pins[10].digital_value = False
+        arduino.pins[10].digital_write(False)
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
-        arduino.pins[AnalogPins.A0].digital_value = True
+        arduino.pins[AnalogPins.A0].digital_write(True)
 
     # Test that we can get the analog value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before analog value
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:10:MODE:GET?", "INPUT"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:ANALOG:GET?", "1000"),
+        ("il", ""),  # pin 11 is set to input
+        ("ao", "1000"),  # pin 14 analog read
     ])
     with pytest.raises(IOError, match=r"Analog read is not supported.*"):
-        arduino.pins[2].analog_value
+        arduino.pins[2].analog_read()
+
+    arduino.pins[11].mode = GPIOPinMode.INPUT
     with pytest.raises(IOError, match=r"Pin does not support analog read"):
-        arduino.pins[10].analog_value
+        arduino.pins[11].analog_read()
     # 4.888 = round((5 / 1023) * 1000, 3)
-    assert arduino.pins[AnalogPins.A0].analog_value == 4.888
+    assert arduino.pins[AnalogPins.A0].analog_read() == 4.888
 
 
 def test_invalid_properties(arduino_serial: MockArduino) -> None:

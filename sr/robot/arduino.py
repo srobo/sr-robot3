@@ -305,7 +305,7 @@ class Pin:
         if self.mode not in DIGITAL_READ_MODES:
             raise IOError(f'Digital read is not supported in {self.mode}')
         response = self._serial.query(self._build_command('r'), endl='')
-        return (response == '1')
+        return (response == 'h')
 
     @log_to_debug
     def digital_write(self, value: bool) -> None:
