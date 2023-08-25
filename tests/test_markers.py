@@ -77,27 +77,27 @@ def test_marker(test_values: MarkerValues):
 
     # in mm
     assert marker.position.distance == pytest.approx(
-        test_values.distance * 1000, rel=1e-2, abs=5), (
+        test_values.distance * 1000, rel=1e-2), (
         f"Distance to marker of {test_values.name} is incorrect. "
         f"{marker.position.distance} != {test_values.distance * 1000}")
     assert marker.position.horizontal_angle == pytest.approx(
-        test_values.horizontal_angle, abs=radians(1)), (
+        test_values.horizontal_angle, abs=radians(0.1)), (
         f"Horizontal angle of {test_values.name} is incorrect. "
         f"{marker.position.horizontal_angle} != {test_values.horizontal_angle}")
     assert marker.position.vertical_angle == pytest.approx(
-        test_values.vertical_angle, abs=radians(1)), (
+        test_values.vertical_angle, abs=radians(0.1)), (
         f"Vertical angle of {test_values.name} is incorrect. "
         f"{marker.position.vertical_angle} != {test_values.vertical_angle}")
 
-    assert marker.orientation.yaw == pytest.approx(test_values.yaw, abs=radians(5)), (
+    assert marker.orientation.yaw == pytest.approx(test_values.yaw, abs=radians(2.5)), (
         f"Yaw of {test_values.name} is incorrect. "
         f"{marker.orientation.yaw} != {test_values.yaw}"
     )
-    assert marker.orientation.pitch == pytest.approx(test_values.pitch, abs=radians(5)), (
+    assert marker.orientation.pitch == pytest.approx(test_values.pitch, abs=radians(2.5)), (
         f"Pitch of {test_values.name} is incorrect. "
         f"{marker.orientation.pitch} != {test_values.pitch}"
     )
-    assert marker.orientation.roll == pytest.approx(test_values.roll, abs=radians(5)), (
+    assert marker.orientation.roll == pytest.approx(test_values.roll, abs=radians(0.2)), (
         f"Roll of {test_values.name} is incorrect. "
         f"{marker.orientation.roll} != {test_values.roll}"
     )
