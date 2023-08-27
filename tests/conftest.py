@@ -57,7 +57,7 @@ class MockSerialWrapper:
         self._baudrate = baud
         return self
 
-    def query(self, request: str) -> str:
+    def query(self, request: str | None) -> str:
         """
         Mocks sending a command and returning the response.
 

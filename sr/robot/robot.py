@@ -18,6 +18,7 @@ from .kch import KCH
 from .logging import log_to_debug, setup_logging
 from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
+from .raw_serial import RawSerial, RawSerialDevice
 from .servo_board import ServoBoard
 from .utils import ensure_atexit_on_term, obtain_lock, singular
 
@@ -42,7 +43,7 @@ class Robot:
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
-        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path', '_kch',
+        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path', '_kch', '_raw_ports',
     )
 
     def __init__(
@@ -53,6 +54,7 @@ class Robot:
         trace_logging: bool = False,
         ignored_arduinos: list[str] | None = None,
         manual_boards: dict[str, list[str]] | None = None,
+        raw_ports: list[RawSerialDevice] | None = None,
     ) -> None:
         self._lock = obtain_lock()
         self._metadata: Metadata | None = None
@@ -67,10 +69,10 @@ class Robot:
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
-            self._init_aux_boards(manual_boards, ignored_arduinos)
+            self._init_aux_boards(manual_boards, ignored_arduinos, raw_ports)
         else:
             self._init_power_board()
-            self._init_aux_boards(ignored_arduinos=ignored_arduinos)
+            self._init_aux_boards(ignored_arduinos=ignored_arduinos, raw_ports=raw_ports)
         self._init_camera()
         self._log_connected_boards()
 
@@ -98,6 +100,7 @@ class Robot:
         self,
         manual_boards: dict[str, list[str]] | None = None,
         ignored_arduinos: list[str] | None = None,
+        raw_ports: list[RawSerialDevice] | None = None,
     ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.
@@ -109,6 +112,7 @@ class Robot:
         :param manual_boards:  A dictionary of board types to a list of additional
             serial port paths that should be checked for boards of that type, defaults to None
         """
+        self._raw_ports: MappingProxyType[str, RawSerial] = MappingProxyType({})
         if manual_boards is None:
             manual_boards = {}
 
@@ -119,9 +123,10 @@ class Robot:
         self._kch = KCH()
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
-        # TODO handling ignored arduinos
         # TODO arduino API
         self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
+        if raw_ports:
+            self._raw_ports = RawSerial._get_supported_boards(raw_ports)
 
     def _init_camera(self) -> None:
         """
@@ -256,6 +261,18 @@ class Robot:
         :raises RuntimeError: If there is not exactly one camera connected
         """
         return singular(self._cameras)
+
+    @property
+    def raw_serial_devices(self) -> Mapping[str, RawSerial]:
+        """
+        Access the raw serial devices connected to the robot.
+
+        These are populated by the `raw_ports` parameter of the constructor,
+        and are indexed by their serial number.
+
+        :return: A mapping of serial numbers to raw serial devices
+        """
+        return self._raw_ports
 
     @log_to_debug
     def sleep(self, secs: float) -> None:
