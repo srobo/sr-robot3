@@ -1,6 +1,6 @@
 .PHONY: lint type test test-html isort isort-check build upload
 
-PYMODULE:=sbot
+PYMODULE:=sr/robot
 TESTS:=tests
 
 all: lint isort-check type build
