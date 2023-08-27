@@ -62,7 +62,7 @@ class PowerStatus(NamedTuple):
 
 
 # This output is always on, and cannot be controlled via the API.
-BRAIN_OUTPUT = PowerOutputPosition.FIVE_VOLT
+BRAIN_OUTPUT = PowerOutputPosition.L2
 
 
 class PowerBoard(Board):

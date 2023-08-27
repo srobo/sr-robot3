@@ -10,7 +10,7 @@ from typing import Any, ClassVar, NewType, Tuple, Union
 
 from paho.mqtt.client import Client as MQTT
 from paho.mqtt.client import MQTTMessage, MQTTv5, MQTTv311
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from .mqtt import MQTTClient
 
@@ -29,6 +29,18 @@ CONFIG_SEARCH_PATHS = [
 
 
 # Astoria config
+
+class MQTTBrokerInfo(BaseModel):
+    """MQTT Broker Information."""
+    class Config:
+        extra = 'forbid'
+
+    host: str
+    port: int
+    enable_tls: bool = False
+    topic_prefix: str = "astoria"
+    force_protocol_version_3_1: bool = False
+
 
 class AstoriaConfig(BaseModel):
     """Config schema for Astoria."""
@@ -56,17 +68,6 @@ class AstoriaConfig(BaseModel):
             return cls.parse_obj(tomllib.load(fh))
 
 
-class MQTTBrokerInfo(BaseModel):
-    """MQTT Broker Information."""
-    model_config = ConfigDict(extra='forbid')
-
-    host: str
-    port: int
-    enable_tls: bool = False
-    topic_prefix: str = "astoria"
-    force_protocol_version_3_1: bool = False
-
-
 # Metadata
 
 class RobotMode(Enum):
@@ -83,17 +84,9 @@ class Metadata(BaseModel):
     As the metadata is passed into a templating engine for initial log lines,
     please do not add nested fields to this schema.
     """
-    # Revalidate the model when fields are changed
-    model_config = ConfigDict(validate_assignment=True)
-
-    @classmethod
-    def init(cls, config: AstoriaConfig) -> "Metadata":
-        """
-        Initialise the metadata and populate with data.
-
-        Based on information from software and the astoria configuration.
-        """
-        return cls()
+    class Config:
+        # Revalidate the model when fields are changed
+        validate_assignment = True
 
     # From Meta USB
     arena: str = "A"
@@ -201,12 +194,10 @@ class StartButtonBroadcastEvent(BaseModel):
 # Module Logic
 
 class AstoriaInterface:
-    def __init__(
-        self, mqtt_client: MQTTClient, astoria_config: AstoriaConfig,
-    ) -> None:
+    def __init__(self, mqtt_client: MQTTClient) -> None:
         self._mqtt = mqtt_client
         self._metadata_lock = Lock()
-        self._metadata = Metadata.init(astoria_config)
+        self._metadata = Metadata()
         self._mount_path = Path("/dev/null")
         self._mount_path_lock = Lock()
         self._start_pressed = Event()
@@ -299,6 +290,6 @@ def init_astoria_mqtt() -> Tuple[MQTTClient, AstoriaInterface]:
         astoria_config = AstoriaConfig(mqtt=MQTTBrokerInfo(host="localhost", port=1883))
 
     mqtt_client = init_mqtt(astoria_config)
-    astoria = AstoriaInterface(mqtt_client, astoria_config)
+    astoria = AstoriaInterface(mqtt_client)
 
     return mqtt_client, astoria
