@@ -123,7 +123,6 @@ class Robot:
         self._kch = KCH()
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
-        # TODO arduino API
         self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
         if raw_ports:
             self._raw_ports = RawSerial._get_supported_boards(raw_ports)

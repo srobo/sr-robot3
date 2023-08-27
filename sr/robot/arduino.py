@@ -92,8 +92,7 @@ class Arduino(Board):
         )
 
         self._identity = self.identify()
-        if self._identity.board_type != self.get_board_type():
-            raise IncorrectBoardError(self._identity.board_type, self.get_board_type())
+        # Arduino board type is not validated to allow for custom firmwares
         self._serial.set_identity(self._identity)
 
     @classmethod
@@ -174,15 +173,18 @@ class Arduino(Board):
 
         :return: The identity of the board.
         """
-        response = self._serial.query('*IDN?')
+        response = self._serial.query('v', endl='')
         response_fields = response.split(':')
 
         # The arduino firmware cannot access the serial number reported in the USB descriptor
         return BoardIdentity(
-            manufacturer=response_fields[0],
-            board_type=response_fields[1],
+            manufacturer=(
+                "Student Robotics"
+                if response_fields[0].startswith('SR')
+                else "Arduino"),
+            board_type=response_fields[0],
             asset_tag=self._serial_num,
-            sw_version=response_fields[3],
+            sw_version=response_fields[1],
         )
 
     @property
@@ -196,32 +198,28 @@ class Arduino(Board):
         return self._pins
 
     @log_to_debug
-    def ultrasound_measure(
-        self,
-        pulse_pin: int,
-        echo_pin: int,
-    ) -> int:
+    def command(self, command: str) -> str:
         """
-        Measure the distance to an object using an ultrasound sensor.
+        Send a command to the board.
 
-        The sensor can only measure distances up to 4m.
+        :param command: The command to send to the board.
+        :return: The response from the board.
+        """
+        return self._serial.query(command, endl='')
 
-        :param pulse_pin: The pin to send the ultrasound pulse from.
-        :param echo_pin: The pin to read the ultrasound echo from.
-        :raises ValueError: If either of the pins are invalid
-        :return: The distance measured by the ultrasound sensor in mm.
+    def map_pin_number(self, pin_number: int) -> str:
+        """
+        Map the pin number to the the serial format.
+        Pin numbers are sent as printable ASCII characters, with 0 being 'a'.
+
+        :return: The pin number in the serial format.
+        :raises ValueError: If the pin number is invalid.
         """
         try:  # bounds check
-            self.pins[pulse_pin]._check_if_disabled()
+            self.pins[pin_number]._check_if_disabled()
         except (IndexError, IOError):
-            raise ValueError("Invalid pulse pin provided") from None
-        try:
-            self.pins[echo_pin]._check_if_disabled()
-        except (IndexError, IOError):
-            raise ValueError("Invalid echo pin provided") from None
-
-        response = self._serial.query(f'ULTRASOUND:{pulse_pin}:{echo_pin}:MEASURE?')
-        return int(response)
+            raise ValueError("Invalid pin provided") from None
+        return chr(pin_number + ord('a'))
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
@@ -235,7 +233,7 @@ class Pin:
     :param index: The index of the pin.
     :param supports_analog: Whether the pin supports analog reads.
     """
-    __slots__ = ('_serial', '_index', '_supports_analog', '_disabled')
+    __slots__ = ('_serial', '_index', '_supports_analog', '_disabled', '_mode')
 
     def __init__(
         self,
@@ -248,6 +246,7 @@ class Pin:
         self._index = index
         self._supports_analog = supports_analog
         self._disabled = disabled
+        self._mode = GPIOPinMode.INPUT_PULLUP
 
     @property
     @log_to_debug
@@ -255,14 +254,13 @@ class Pin:
         """
         Get the mode of the pin.
 
-        This is fetched from the board.
+        This returns the cached value since thew board does not report this.
 
         :raises IOError: If this pin cannot be controlled.
         :return: The mode of the pin.
         """
         self._check_if_disabled()
-        mode = self._serial.query(f'PIN:{self._index}:MODE:GET?')
-        return GPIOPinMode(mode)
+        return self._mode
 
     @mode.setter
     @log_to_debug
@@ -280,11 +278,20 @@ class Pin:
         self._check_if_disabled()
         if not isinstance(value, GPIOPinMode):
             raise IOError('Pin mode only supports being set to a GPIOPinMode')
-        self._serial.write(f'PIN:{self._index}:MODE:SET:{value.value}')
 
-    @property
+        mode_char_map = {
+            GPIOPinMode.INPUT: 'i',
+            GPIOPinMode.INPUT_PULLUP: 'p',
+            GPIOPinMode.OUTPUT: 'o',
+        }
+        mode_char = mode_char_map.get(value)
+        if mode_char is None:
+            raise IOError(f'Pin mode {value} is not supported')
+        self._serial.write(self._build_command(mode_char), endl='')
+        self._mode = value
+
     @log_to_debug
-    def digital_value(self) -> bool:
+    def digital_read(self) -> bool:
         """
         Perform a digital read on the pin.
 
@@ -295,12 +302,11 @@ class Pin:
         self._check_if_disabled()
         if self.mode not in DIGITAL_READ_MODES:
             raise IOError(f'Digital read is not supported in {self.mode}')
-        response = self._serial.query(f'PIN:{self._index}:DIGITAL:GET?')
-        return (response == '1')
+        response = self._serial.query(self._build_command('r'), endl='')
+        return (response == 'h')
 
-    @digital_value.setter
     @log_to_debug
-    def digital_value(self, value: bool) -> None:
+    def digital_write(self, value: bool) -> None:
         """
         Write a digital value to the pin.
 
@@ -312,13 +318,12 @@ class Pin:
         if self.mode not in DIGITAL_WRITE_MODES:
             raise IOError(f'Digital write is not supported in {self.mode}')
         if value:
-            self._serial.write(f'PIN:{self._index}:DIGITAL:SET:1')
+            self._serial.write(self._build_command('h'), endl='')
         else:
-            self._serial.write(f'PIN:{self._index}:DIGITAL:SET:0')
+            self._serial.write(self._build_command('l'), endl='')
 
-    @property
     @log_to_debug
-    def analog_value(self) -> float:
+    def analog_read(self) -> float:
         """
         Get the analog voltage on the pin.
 
@@ -336,7 +341,7 @@ class Pin:
             raise IOError(f'Analog read is not supported in {self.mode}')
         if not self._supports_analog:
             raise IOError('Pin does not support analog read')
-        response = self._serial.query(f'PIN:{self._index}:ANALOG:GET?')
+        response = self._serial.query(self._build_command('a'), endl='')
         # map the response from the ADC range to the voltage range
         return map_to_float(int(response), ADC_MIN, ADC_MAX, 0.0, 5.0)
 
@@ -348,6 +353,24 @@ class Pin:
         """
         if self._disabled:
             raise IOError('This pin cannot be controlled.')
+
+    def _map_pin_number(self) -> str:
+        """
+        Map the pin number to the the serial format.
+        Pin numbers are sent as printable ASCII characters, with 0 being 'a'.
+
+        :return: The pin number in the serial format.
+        """
+        return chr(self._index + ord('a'))
+
+    def _build_command(self, cmd_char: str) -> str:
+        """
+        Generate the command to send to the board.
+
+        :param command: The command character to send.
+        :return: The command string.
+        """
+        return f'{cmd_char}{self._map_pin_number()}'
 
     def __repr__(self) -> str:
         return (
@@ -374,25 +397,20 @@ if __name__ == '__main__':  # pragma: no cover
 
         # Digital write
         board.pins[13].mode = GPIOPinMode.OUTPUT
-        board.pins[13].digital_value = True
-        digital_write_value = board.pins[13].digital_value
+        board.pins[13].digital_write(True)
+        digital_write_value = board.pins[13].digital_read()
         print(f'Set pin 13 to output and set to {digital_write_value}')
 
         # Digital read
         board.pins[4].mode = GPIOPinMode.INPUT
-        digital_read_value = board.pins[4].digital_value
+        digital_read_value = board.pins[4].digital_read()
         print(f'Input 4 = {digital_read_value}')
 
         board.pins[5].mode = GPIOPinMode.INPUT_PULLUP
-        digital_read_value = board.pins[5].digital_value
+        digital_read_value = board.pins[5].digital_read()
         print(f'Input 5 = {digital_read_value}')
 
         # Analog read
         board.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
-        analog_read_value = board.pins[AnalogPins.A0].analog_value
+        analog_read_value = board.pins[AnalogPins.A0].analog_read()
         print(f'Analog input A0 = {analog_read_value}')
-
-        # Trigger pin: 4
-        # Echo pin: 5
-        ultrasound_dist = board.ultrasound_measure(4, 5)
-        print(f'Ultrasound distance = {ultrasound_dist}mm')
