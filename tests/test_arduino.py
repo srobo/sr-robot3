@@ -5,14 +5,12 @@ This test uses a mock serial wrapper to simulate the connection to the arduino b
 """
 from __future__ import annotations
 
-import re
 import logging
 from typing import NamedTuple
 
 import pytest
 
 from sr.robot.arduino import AnalogPins, Arduino, GPIOPinMode
-from sr.robot.exceptions import IncorrectBoardError
 from sr.robot.utils import BoardIdentity, singular
 
 from .conftest import MockSerialWrapper
@@ -28,7 +26,7 @@ class MockArduino(NamedTuple):
 @pytest.fixture
 def arduino_serial(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Called by Arduino.__init__
+        ("v", "SRduino:2.0"),  # Called by Arduino.__init__
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
     arduino_board = Arduino('test://', initial_identity=BoardIdentity(asset_tag='TEST123'))
@@ -47,7 +45,7 @@ def test_arduino_board_identify(arduino_serial: MockArduino) -> None:
     """
     serial_wrapper = arduino_serial.serial_wrapper
     serial_wrapper._add_responses([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
+        ("v", "SSRduino:2.0"),
     ])
     arduino_board = arduino_serial.arduino_board
 
@@ -55,7 +53,7 @@ def test_arduino_board_identify(arduino_serial: MockArduino) -> None:
     assert serial_wrapper._port == 'test://'
 
     # Test that the identity is correctly set from the first *IDN? response
-    assert arduino_board._identity.board_type == "Arduino"
+    assert arduino_board._identity.board_type == "SRduino"
     assert arduino_board._identity.asset_tag == "TEST123"
 
     # Test identify returns the identity
@@ -203,10 +201,12 @@ def test_arduino_board_discovery(monkeypatch) -> None:
         return ports
 
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # USB discovered board
-        ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # USB invalid board
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Manually added board
-        ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # Manual invalid board
+        ("v", "SRduino:2.0"),  # USB discovered board
+        ("v", "Arduino:4.3"),  # USB invalid board
+        ("v", "SRcustom:3.0"),  # Manually added board
+        ("v", "OTHER:4.3"),  # Manual invalid board
+        ("v", "SRduino:2.0"),  # identity check
+        ("v", "SRcustom:3.0"),  # identity check
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
     monkeypatch.setattr('sr.robot.arduino.comports', mock_comports)
@@ -216,38 +216,30 @@ def test_arduino_board_discovery(monkeypatch) -> None:
     # Manually added boards use the serial port as the asset tag
     assert {'TEST123', 'test://2'} == set(arduino_boards.keys())
 
+    identity = arduino_boards['TEST123'].identify()
+    assert identity.board_type == "SRduino"
+    assert identity.sw_version == "2.0"
 
-def test_arduino_board_invalid_identity(monkeypatch) -> None:
-    """
-    Test that we raise an error if the arduino board returns an different board type.
-    """
-    serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:TestBoard:TEST123:4.3"),  # Called by Arduino.__init__
-    ])
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
-
-    with pytest.raises(
-        IncorrectBoardError,
-        match=re.escape("Board returned type 'TestBoard', expected 'Arduino'"),
-    ):
-        Arduino('test://')
+    identity = arduino_boards['test://2'].identify()
+    assert identity.board_type == "SRcustom"
+    assert identity.sw_version == "3.0"
 
 
-def test_arduino_board_old_sr_identity(monkeypatch, caplog) -> None:
+def test_arduino_board_new_sourcebots_identity(monkeypatch, caplog) -> None:
     """
     Test that we raise an error if the arduino board returns an old style identity.
     """
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", ""),  # Called by Arduino.__init__
+        ("v", "NACK:Invalid command"),  # Called by Arduino.__init__
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
 
     with caplog.at_level(logging.WARNING):
-        Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+        arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
 
+    assert arduino is None
     assert caplog.records[0].message == (
-        "Manually specified Arduino at port 'test://',"
-        " could not be identified. Ignoring this device"
+        "Board returned type 'NACK', expected 'SR*'. Ignoring this device"
     )
 
 
@@ -256,16 +248,16 @@ def test_arduino_board_old_sourcebots_identity(monkeypatch, caplog) -> None:
     Test that we raise an error if the arduino board returns an old style identity.
     """
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Error, unknown command: *IDN?"),  # Called by Arduino.__init__
+        ("v", "Error, unknown command: v"),  # Called by Arduino.__init__
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
 
     with caplog.at_level(logging.WARNING):
-        Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+        arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
 
+    assert arduino is None
     assert caplog.records[0].message == (
-        "Manually specified Arduino at port 'test://',"
-        " could not be identified. Ignoring this device"
+        "Board returned type 'Error, unknown command', expected 'SR*'. Ignoring this device"
     )
 
 

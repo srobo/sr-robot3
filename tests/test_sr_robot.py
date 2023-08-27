@@ -40,8 +40,8 @@ def test_robot(monkeypatch, caplog) -> None:
         ("*IDN?", "Student Robotics:SBv4B:TEST123:4.3"),
     ]))
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
+        ("v", "SRduino:2.0"),
+        ("v", "SRduino:2.0"),
     ]))
 
     # monkey patch atexit to avoid running cleanup code
@@ -96,7 +96,7 @@ def test_robot(monkeypatch, caplog) -> None:
         "Student Robotics", "SBv4B", "TEST123", "4.3")
 
     assert r.arduino._identity == BoardIdentity(
-        "Student Robotics", "Arduino", "test://", "2.0")
+        "Student Robotics", "SRduino", "test://", "2.0")
 
     # Check that a RuntimeError is raised if we have 0 instances of a board
     with pytest.raises(RuntimeError, match="No boards of this type found"):

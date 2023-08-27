@@ -295,7 +295,7 @@ def init_astoria_mqtt() -> Tuple[MQTTClient, AstoriaInterface]:
     try:
         astoria_config = AstoriaConfig.load()
     except FileNotFoundError:
-        LOGGER.warn("Unable to find astoria.toml, using default values")
+        LOGGER.warning("Unable to find astoria.toml, using default values")
         astoria_config = AstoriaConfig(mqtt=MQTTBrokerInfo(host="localhost", port=1883))
 
     mqtt_client = init_mqtt(astoria_config)

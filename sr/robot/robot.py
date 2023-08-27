@@ -321,7 +321,7 @@ class Robot:
             raise MetadataNotReadyError()
 
         if not self._metadata.wifi_enabled:
-            logger.warn("Could not print WiFi details - WiFi is not enabled")
+            logger.warning("Could not print WiFi details - WiFi is not enabled")
             return
         logger.info("WiFi credentials:")
         logger.info(f"SSID: {self._metadata.wifi_ssid}")
