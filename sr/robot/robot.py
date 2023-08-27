@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import itertools
 import logging
-from time import sleep
+import time
+from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
 
@@ -13,6 +14,7 @@ from .arduino import Arduino
 from .astoria import Metadata, RobotMode, init_astoria_mqtt
 from .camera import AprilCamera, _setup_cameras
 from .exceptions import MetadataNotReadyError
+from .kch import KCH
 from .logging import log_to_debug, setup_logging
 from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
@@ -21,6 +23,8 @@ from .utils import ensure_atexit_on_term, obtain_lock, singular
 
 logger = logging.getLogger(__name__)
 
+
+# TODO check atexit with removing USB/sigterm
 
 class Robot:
     """
@@ -38,7 +42,7 @@ class Robot:
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
-        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path',
+        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path', '_kch',
     )
 
     def __init__(
@@ -70,7 +74,10 @@ class Robot:
         self._log_connected_boards()
 
         if wait_for_start:
+            logger.debug("Waiting for start button.")
             self.wait_start()
+        else:
+            logger.debug("Not waiting for start button.")
 
     def _init_power_board(self, manual_boards: list[str] | None = None) -> None:
         """
@@ -82,8 +89,9 @@ class Robot:
         """
         power_boards = PowerBoard._get_supported_boards(manual_boards)
         self._power_board = singular(power_boards)
+
+        # Enable all the outputs, so that we can find other boards.
         self._power_board.outputs.power_on()
-        # TODO delay for boards to power up ???
 
     def _init_aux_boards(self, manual_boards: dict[str, list[str]] | None = None) -> None:
         """
@@ -103,8 +111,11 @@ class Robot:
         manual_servoboards = manual_boards.get(ServoBoard.get_board_type(), [])
         manual_arduinos = manual_boards.get(Arduino.get_board_type(), [])
 
+        self._kch = KCH()  # TODO kch API review
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
+        # TODO handling ignored arduinos
+        # TODO arduino API
         self._arduinos = Arduino._get_supported_boards(manual_arduinos)
 
     def _init_camera(self) -> None:
@@ -140,6 +151,15 @@ class Robot:
                 f"Firmware Version of {identity.asset_tag}: {identity.sw_version}, "
                 f"reported type: {identity.board_type}",
             )
+
+    @property
+    def kch(self) -> KCH:
+        """
+        Access the Raspberry Pi hat, includeing user-accessible LEDs.
+
+        :returns: The KCH object
+        """
+        return self._kch
 
     @property
     def power_board(self) -> PowerBoard:
@@ -238,10 +258,23 @@ class Robot:
         Sleep for a number of seconds.
 
         This is a convenience method that can be used instead of time.sleep().
+        This exists for compatibility with the simulator API only.
 
         :param secs: The number of seconds to sleep for
         """
-        sleep(secs)
+        time.sleep(secs)
+
+    @log_to_debug
+    def time(self) -> float:
+        """
+        Get the number of seconds since the Unix Epoch.
+
+        This is a convenience method that can be used instead of time.time().
+        This exists for compatibility with the simulator API only.
+
+        :returns: the number of seconds since the Unix Epoch.
+        """
+        return time.time()
 
     @property
     @log_to_debug
@@ -354,6 +387,8 @@ class Robot:
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
+        # TODO flash kch start LED
+        self.kch.start = True
 
         while not (
             self.power_board._start_button() or self._astoria.get_start_button_pressed()
@@ -361,6 +396,7 @@ class Robot:
             time.sleep(0.1)
         logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
+        self.kch.start = False
 
         # Load the latest metadata that we have received over MQTT
         self._metadata = self._astoria.fetch_current_metadata()
