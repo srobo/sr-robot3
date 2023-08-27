@@ -3,15 +3,13 @@ from __future__ import annotations
 import atexit
 import json
 import logging
-import os
+from threading import Lock
 from typing import Any, Callable, TypedDict
+from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
 
 LOGGER = logging.getLogger(__name__)
-
-# check if we have the variables we need
-MQTT_VALID = 'SBOT_MQTT_URL' in os.environ
 
 
 class MQTTClient:
@@ -24,12 +22,12 @@ class MQTTClient:
         username: str = '',
         password: str = '',
     ) -> None:
-        self.subscriptions: dict[
+        self._subscriptions_lock = Lock()
+        self._subscriptions: dict[
             str, Callable[[mqtt.Client, Any, mqtt.MQTTMessage], None]
         ] = {}
         self.topic_prefix = topic_prefix
         self._client_name = client_name
-        self._img_topic = 'img'
 
         self._client = mqtt.Client(client_id=client_name, protocol=mqtt_version)
         self._client.on_connect = self._on_connect
@@ -88,7 +86,8 @@ class MQTTClient:
         else:
             full_topic = topic
 
-        self.subscriptions[full_topic] = callback
+        with self._subscriptions_lock:
+            self._subscriptions[full_topic] = callback
         self._subscribe(full_topic, callback)
 
     def _subscribe(
@@ -103,7 +102,8 @@ class MQTTClient:
     def unsubscribe(self, topic: str) -> None:
         """Unsubscribe from a topic."""
         try:
-            del self.subscriptions[topic]
+            with self._subscriptions_lock:
+                del self._subscriptions[topic]
         except KeyError:
             pass
         self._client.message_callback_remove(topic)
@@ -152,6 +152,7 @@ class MQTTClient:
         self, client: mqtt.Client, userdata: Any, flags: dict[str, int], rc: int,
         properties: mqtt.Properties | None = None,
     ) -> None:
+        """Callback run each time the client connects to the broker."""
         if rc != mqtt.CONNACK_ACCEPTED:
             LOGGER.warning(
                 f"Failed to connect to MQTT broker. Return code: {mqtt.error_string(rc)}"
@@ -160,8 +161,9 @@ class MQTTClient:
 
         LOGGER.debug("Connected to MQTT broker.")
 
-        for topic, callback in self.subscriptions.items():
-            self._subscribe(topic, callback)
+        with self._subscriptions_lock:
+            for topic, callback in self._subscriptions.items():
+                self._subscribe(topic, callback)
 
 
 class MQTTVariables(TypedDict):
@@ -173,44 +175,28 @@ class MQTTVariables(TypedDict):
     password: str | None
 
 
-def get_mqtt_variables() -> MQTTVariables:
-    """Get MQTT variables from environment variables."""
-    if not MQTT_VALID:
-        raise ValueError("MQTT variables are not set.")
+def unpack_mqtt_url(url: str) -> MQTTVariables:
+    """
+    Unpack an MQTT URL into its components to be passed to MQTTClient.
 
-    # url format: mqtt[s]://<username>:<password>@<host>:<port>/<topic_root>
-    mqtt_url = os.environ['SBOT_MQTT_URL']
+    The URL should be in the format:
+    mqtt[s]://[<username>[:<password>]]@<host>[:<port>]/<topic_root>
+    """
+    url_parts = urlparse(url)
 
-    scheme, rest = mqtt_url.split('://', maxsplit=1)
-    # username and password are optional
-    try:
-        user_pass, host_port_topic = rest.rsplit('@', maxsplit=1)
-    except ValueError:
-        username, password = None, None
-        host_port_topic = rest
-    else:
-        try:
-            username, password = user_pass.split(':', maxsplit=1)
-        except ValueError:
-            # username can be supplied without password
-            username = user_pass
-            password = None
+    if url_parts.scheme not in ('mqtt', 'mqtts'):
+        raise ValueError(f"Invalid scheme: {url_parts.scheme}")
 
-    host_port, topic_root = host_port_topic.split('/', maxsplit=1)
-    use_tls = (scheme == 'mqtts')
-    try:
-        host, port_str = host_port.split(':', maxsplit=1)
-        port = int(port_str)
-    except ValueError:
-        # use default port for scheme
-        host = host_port
-        port = 8883 if use_tls else 1883
+    use_tls = (url_parts.scheme == 'mqtts')
+
+    if url_parts.hostname is None:
+        raise ValueError("No hostname given")
 
     return MQTTVariables(
-        host=host,
-        port=port,
-        topic_prefix=topic_root,
+        host=url_parts.hostname,
+        port=url_parts.port or (8883 if use_tls else 1883),
+        topic_prefix=url_parts.path,
         use_tls=use_tls,
-        username=username,
-        password=password,
+        username=url_parts.username,
+        password=url_parts.password,
     )
