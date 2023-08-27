@@ -51,6 +51,7 @@ class Robot:
         debug: bool = False,
         wait_for_start: bool = True,
         trace_logging: bool = False,
+        ignored_arduinos: list[str] | None = None,
         manual_boards: dict[str, list[str]] | None = None,
     ) -> None:
         self._lock = obtain_lock()
@@ -66,10 +67,10 @@ class Robot:
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
-            self._init_aux_boards(manual_boards)
+            self._init_aux_boards(manual_boards, ignored_arduinos)
         else:
             self._init_power_board()
-            self._init_aux_boards()
+            self._init_aux_boards(ignored_arduinos=ignored_arduinos)
         self._init_camera()
         self._log_connected_boards()
 
@@ -93,7 +94,11 @@ class Robot:
         # Enable all the outputs, so that we can find other boards.
         self._power_board.outputs.power_on()
 
-    def _init_aux_boards(self, manual_boards: dict[str, list[str]] | None = None) -> None:
+    def _init_aux_boards(
+        self,
+        manual_boards: dict[str, list[str]] | None = None,
+        ignored_arduinos: list[str] | None = None,
+    ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.
 
@@ -116,7 +121,7 @@ class Robot:
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
         # TODO handling ignored arduinos
         # TODO arduino API
-        self._arduinos = Arduino._get_supported_boards(manual_arduinos)
+        self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
 
     def _init_camera(self) -> None:
         """
