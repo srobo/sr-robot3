@@ -7,7 +7,6 @@ import signal
 
 from sr.robot import Robot
 from sr.robot.exceptions import MetadataNotReadyError
-from sr.robot.metadata import METADATA_ENV_VAR
 from sr.robot.utils import BoardIdentity, obtain_lock
 
 from .conftest import MockAtExit, MockSerialWrapper
@@ -59,9 +58,6 @@ def test_robot(monkeypatch, caplog) -> None:
     # Forget the camera
     monkeypatch.setattr('sr.robot.robot._setup_cameras', lambda *_: {})
 
-    # Avoid searching filesystem for metadata
-    monkeypatch.delenv(METADATA_ENV_VAR, raising=False)
-
     manual_boards = {
         'PBv4B': ['test://'],
         'SBv4B': ['test://'],
@@ -70,7 +66,9 @@ def test_robot(monkeypatch, caplog) -> None:
     }
     # check logging
     caplog.clear()
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.CRITICAL, logger='sr.robot.mqtt')
+    caplog.set_level(logging.CRITICAL, logger='sr.robot.astoria')
+    caplog.set_level(logging.INFO, logger='sr.robot.robot')
 
     # Test that we can obtain a lock before creating a robot object
     lock = obtain_lock()
