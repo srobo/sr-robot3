@@ -6,7 +6,7 @@ from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from threading import Event, Lock
-from typing import Any, ClassVar, NewType
+from typing import Any, ClassVar, NewType, Tuple, Union
 
 from paho.mqtt.client import Client as MQTT
 from paho.mqtt.client import MQTTMessage, MQTTv5, MQTTv311
@@ -36,7 +36,7 @@ class AstoriaConfig(BaseModel):
     mqtt: MQTTBrokerInfo
 
     @classmethod
-    def _get_config_path(cls, config_str: str | None = None) -> Path:
+    def _get_config_path(cls, config_str: Union[str, None] = None) -> Path:
         """Check for a config file or search the filesystem for one."""
         if config_str is None:
             for path in CONFIG_SEARCH_PATHS:
@@ -49,7 +49,7 @@ class AstoriaConfig(BaseModel):
         raise FileNotFoundError("Unable to find config file.")
 
     @classmethod
-    def load(cls, config_str: str | None = None) -> "AstoriaConfig":
+    def load(cls, config_str: Union[str, None] = None) -> "AstoriaConfig":
         """Load the config."""
         config_path = cls._get_config_path(config_str)
         with config_path.open("rb") as fh:
@@ -100,13 +100,13 @@ class Metadata(BaseModel):
     zone: int = 0
     mode: RobotMode = RobotMode.DEV
     marker_offset: int = 0
-    game_timeout: int | None = None
+    game_timeout: Union[int, None] = None
     wifi_enabled: bool = True
 
     # From robot settings file
-    wifi_ssid: str | None = None
-    wifi_psk: str | None = None
-    wifi_region: str | None = None
+    wifi_ssid: Union[str, None] = None
+    wifi_psk: Union[str, None] = None
+    wifi_region: Union[str, None] = None
 
 
 # Process manager fields
@@ -162,9 +162,9 @@ class ProcessManagerMessage(ManagerMessage):
     Published to astoria/astprocd
     """
 
-    code_status: CodeStatus | None
-    disk_info: DiskInfo | None
-    pid: int | None
+    code_status: Union[CodeStatus, None]
+    disk_info: Union[DiskInfo, None]
+    pid: Union[int, None]
 
 
 class MetadataManagerMessage(ManagerMessage):
@@ -290,7 +290,7 @@ def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot3') -> 'MQTTCli
     return client
 
 
-def init_astoria_mqtt() -> tuple[MQTTClient, AstoriaInterface]:
+def init_astoria_mqtt() -> Tuple[MQTTClient, AstoriaInterface]:
     """Initialise the MQTT client & Astoria integrations."""
     try:
         astoria_config = AstoriaConfig.load()

@@ -1,8 +1,9 @@
 """KCH Driver."""
+from __future__ import annotations
+
 import atexit
 import warnings
 from enum import IntEnum, unique
-from typing import List, Tuple, Union
 
 try:
     import RPi.GPIO as GPIO  # isort: ignore
@@ -28,12 +29,12 @@ class RobotLEDs(IntEnum):
     USER_C_BLUE = 17
 
     @classmethod
-    def all_leds(cls) -> List[int]:
+    def all_leds(cls) -> list[int]:
         """Get all LEDs."""
         return [c.value for c in cls]
 
     @classmethod
-    def user_leds(cls) -> List[Tuple[int, int, int]]:
+    def user_leds(cls) -> list[tuple[int, int, int]]:
         """Get the user programmable LEDs."""
         return [
             (cls.USER_A_RED, cls.USER_A_GREEN, cls.USER_A_BLUE),
@@ -66,6 +67,7 @@ class Colour():
 
 class KCH:
     """KCH Board."""
+    __slots__ = ('_leds', '_pwm')
 
     def __init__(self) -> None:
         if HAS_HAT:
@@ -77,7 +79,10 @@ class KCH:
                 # cause a warning as the gpio are already initialized, we can
                 # suppress this as we know the reason behind the warning
                 GPIO.setup(RobotLEDs.all_leds(), GPIO.OUT, initial=GPIO.LOW)
-        self._leds = LEDs(RobotLEDs.user_leds())
+            self._pwm: GPIO.PWM | None = None
+        self._leds = tuple(
+            LED(rgb_led) for rgb_led in RobotLEDs.user_leds()
+        )
 
         # We are not running cleanup so the LED state persists after the code completes,
         # this will cause a warning with `GPIO.setup()` which we can suppress
@@ -97,65 +102,29 @@ class KCH:
     def start(self, value: bool) -> None:
         """Set the state of the start LED."""
         if HAS_HAT:
+            if self._pwm:
+                # stop any flashing the LED is doing
+                self._pwm.stop()
+                self._pwm = None
             GPIO.output(RobotLEDs.START, GPIO.HIGH if value else GPIO.LOW)
 
+    def flash_start(self) -> None:
+        """Set the start LED flashing at 1Hz."""
+        if HAS_HAT:
+            self._pwm = GPIO.PWM(RobotLEDs.START, 1)
+            self._pwm.start(50)
+
     @property
-    def leds(self) -> 'LEDs':
+    def leds(self) -> tuple['LED', ...]:
         """User programmable LEDs."""
         return self._leds
 
 
-class LEDs:
-    """Programmable LEDs controller."""
-
-    def __init__(self, leds: List[Tuple[int, int, int]]):
-        self._leds = leds
-
-    def __setitem__(self, key: Union[int, slice], value: Tuple[bool, bool, bool]) -> None:
-        """
-        Set the colour of a user LED.
-
-        :param key: The index of the RGB LED to set.
-        :param value: A 3-tuple of the subpixel values as bools.
-        :returns: None.
-        :raises ValueError: value wasn't a tuple with 3 elements.
-        :raises IndexError: An index outside range(3) was requested.
-        """
-        rgb_leds = []
-        if isinstance(key, slice):
-            rgb_leds = self._leds[key]
-        elif isinstance(key, int):
-            rgb_leds = [self._leds[key]]
-
-        if not isinstance(value, (tuple, list)) or len(value) != 3:
-            raise ValueError("The LED requires 3 values for it's colour")
-
-        if HAS_HAT:
-            for rgb_led in rgb_leds:
-                for led, state in zip(rgb_led, value):
-                    GPIO.output(led, GPIO.HIGH if state else GPIO.LOW)
-
-    def __getitem__(self, key: Union[int, slice]) -> Union['LED', List['LED']]:
-        """
-        Get the colour of a user LED.
-
-        :param key: The index of the RGB LED to get the colour of.
-        :returns: A 3-tuple of the subpixel values as bools.
-        :raises IndexError: An index outside range(3) was requested.
-        """
-        if isinstance(key, slice):
-            return [LED(led) for led in self._leds[key]]
-        elif isinstance(key, int):
-            return LED(self._leds[key])
-
-    def __len__(self) -> int:
-        return len(self._leds)
-
-
 class LED:
     """User programmable LED."""
+    __slots__ = ('_led',)
 
-    def __init__(self, led: Tuple[int, int, int]):
+    def __init__(self, led: tuple[int, int, int]):
         self._led = led
 
     @property
@@ -190,3 +159,29 @@ class LED:
         """Set the state of the Blue LED segment."""
         if HAS_HAT:
             GPIO.output(self._led[2], GPIO.HIGH if value else GPIO.LOW)
+
+    @property
+    def colour(self) -> tuple[bool, bool, bool]:
+        """Get the colour of the user LED."""
+        if HAS_HAT:
+            return (
+                GPIO.input(self._led[0]),
+                GPIO.input(self._led[1]),
+                GPIO.input(self._led[2]),
+            )
+        else:
+            return False, False, False
+
+    @colour.setter
+    def colour(self, value: tuple[bool, bool, bool]) -> None:
+        """Set the colour of the user LED."""
+        if not isinstance(value, (tuple, list)) or len(value) != 3:
+            raise ValueError("The LED requires 3 values for it's colour")
+
+        if HAS_HAT:
+            GPIO.output(
+                self._led,
+                tuple(
+                    GPIO.HIGH if v else GPIO.LOW for v in value
+                ),
+            )

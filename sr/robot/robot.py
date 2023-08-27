@@ -111,7 +111,7 @@ class Robot:
         manual_servoboards = manual_boards.get(ServoBoard.get_board_type(), [])
         manual_arduinos = manual_boards.get(Arduino.get_board_type(), [])
 
-        self._kch = KCH()  # TODO kch API review
+        self._kch = KCH()
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
         # TODO handling ignored arduinos
@@ -387,8 +387,7 @@ class Robot:
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
-        # TODO flash kch start LED
-        self.kch.start = True
+        self.kch.flash_start()
 
         while not (
             self.power_board._start_button() or self._astoria.get_start_button_pressed()
