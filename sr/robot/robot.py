@@ -295,20 +295,6 @@ class Robot:
         """
         return time.time()
 
-    @property
-    @log_to_debug
-    def metadata(self) -> Metadata:  # TODO maybe remove this
-        """
-        Fetch the robot's current metadata.
-
-        :raises MetadataNotReadyError: If the start button has not been pressed yet
-        :return: The metadata class as returned by astmetad
-        """
-        if self._metadata is None:
-            raise MetadataNotReadyError()
-        else:
-            return self._metadata
-
     def print_wifi_details(self) -> None:
         """
         Prints the current WiFi details stored in robot-settings.toml.
