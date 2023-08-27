@@ -115,7 +115,7 @@ class SerialWrapper:
         """
         self._disconnect()
 
-    @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError))
+    @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError, OSError))
     def query(self, data: str | None, *, endl: str = '\n') -> str:
         """
         Send a command to the board and return the response.
