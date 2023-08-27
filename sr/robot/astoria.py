@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import sys
 from enum import Enum
@@ -222,6 +220,7 @@ class AstoriaInterface:
     ) -> None:
         """Update the metadata."""
         try:
+            MetadataManagerMessage.update_forward_refs()
             message = MetadataManagerMessage.parse_raw(msg.payload)
             if message.status == MetadataManagerMessage.Status.RUNNING:
                 LOGGER.debug("Received metadata")

@@ -96,7 +96,7 @@ def test_serial_wrapper(caplog) -> None:
     assert serial_wrapper.query("Echo test") == "Echo test"
     assert serial_wrapper.serial.is_open
     assert caplog.record_tuples == [
-        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board Test board:5678'),
+        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board Test board: 5678'),
         ('sr.robot.serial_wrapper', 5, "Serial write - 'Echo test'"),
         ('sr.robot.serial_wrapper', 5, "Serial read  - 'Echo test'"),
     ]
@@ -150,21 +150,21 @@ def test_serial_wrapper_message_timeout(caplog, monkeypatch) -> None:
          'Connection to board : timed out waiting for response'),
         ('sr.robot.serial_wrapper', logging.WARNING, 'Board : disconnected'),
 
-        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board :'),
+        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board : '),
         ('sr.robot.serial_wrapper', 5, "Serial write - 'Echo test'"),
         ('sr.robot.serial_wrapper', 5, "Serial read  - ''"),
         ('sr.robot.serial_wrapper', logging.WARNING,
          'Connection to board : timed out waiting for response'),
         ('sr.robot.serial_wrapper', logging.WARNING, 'Board : disconnected'),
 
-        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board :'),
+        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board : '),
         ('sr.robot.serial_wrapper', 5, "Serial write - 'Echo test'"),
         ('sr.robot.serial_wrapper', 5, "Serial read  - ''"),
         ('sr.robot.serial_wrapper', logging.WARNING,
          'Connection to board : timed out waiting for response'),
         ('sr.robot.serial_wrapper', logging.WARNING, 'Board : disconnected'),
 
-        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board :'),
+        ('sr.robot.serial_wrapper', logging.INFO, 'Connected to board : '),
         ('sr.robot.serial_wrapper', 5, "Serial write - 'Echo test'"),
         ('sr.robot.serial_wrapper', 5, "Serial read  - ''"),
         ('sr.robot.serial_wrapper', logging.WARNING,

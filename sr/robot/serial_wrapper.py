@@ -213,7 +213,7 @@ class SerialWrapper:
             return False
 
         logger.info(
-            f'Connected to board {self.identity.board_type}:{self.identity.asset_tag}'
+            f'Connected to board {self.identity.board_type}: {self.identity.asset_tag}'
         )
         return True
 
