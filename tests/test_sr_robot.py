@@ -1,5 +1,6 @@
 """Test that the module works."""
 import logging
+import signal
 import socket
 
 import pytest

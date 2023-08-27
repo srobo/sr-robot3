@@ -25,8 +25,6 @@ from .utils import ensure_atexit_on_term, obtain_lock, singular
 logger = logging.getLogger(__name__)
 
 
-# TODO check atexit with removing USB/sigterm
-
 class Robot:
     """
     The main robot class that provides access to all the boards.

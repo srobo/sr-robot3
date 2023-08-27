@@ -206,7 +206,6 @@ def get_USB_identity(port: ListPortInfo) -> BoardIdentity:
 def ensure_atexit_on_term() -> None:
     """
     Ensure `atexit` triggers on `SIGTERM`.
-
     > The functions registered via [`atexit`] are not called when the program is
       killed by a signal not handled by Python
     """
@@ -219,7 +218,6 @@ def ensure_atexit_on_term() -> None:
     def handle_signal(handled_signum: int, frame: FrameType | None) -> None:
         """
         Handle the given signal by outputting some text and terminating the process.
-
         This will trigger `atexit`.
         """
         logger.info(signal.strsignal(handled_signum))
