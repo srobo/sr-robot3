@@ -67,10 +67,9 @@ class Robot:
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
-            self._init_aux_boards(manual_boards, ignored_arduinos, raw_ports)
         else:
             self._init_power_board()
-            self._init_aux_boards(ignored_arduinos=ignored_arduinos, raw_ports=raw_ports)
+        self._init_aux_boards(manual_boards, ignored_arduinos, raw_ports)
         self._init_camera()
         self._log_connected_boards()
 
@@ -149,6 +148,7 @@ class Robot:
             self.servo_boards.values(),
             self.arduinos.values(),
             self._cameras.values(),
+            self.raw_serial_devices.values(),
         )
         for board in boards:
             identity = board.identify()

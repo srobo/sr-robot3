@@ -7,7 +7,9 @@ from .kch import Colour, UserLED
 from .logging import add_trace_level
 from .motor_board import MotorPower
 from .power_board import Note, PowerOutputPosition
+from .raw_serial import RawSerialDevice
 from .robot import Robot
+from .utils import list_ports
 
 add_trace_level()
 
@@ -67,5 +69,7 @@ __all__ = [
     "OUT_L0",
     "OUT_L1",
     "OUT_L3",
+    "RawSerialDevice",
     "Robot",
+    "list_ports",
 ]

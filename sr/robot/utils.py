@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from types import FrameType
 from typing import Any, Mapping, NamedTuple, TypeVar, Union
 
+from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 
 T = TypeVar('T')
@@ -225,3 +226,21 @@ def ensure_atexit_on_term() -> None:
 
     # Add the null-ish signal handler
     signal.signal(signal.SIGTERM, handle_signal)
+
+
+def list_ports() -> None:
+    """
+    Print a list of all connected USB serial ports.
+
+    Output is in the format:
+    ```
+    VID:PID - Manufacturer - Product - Serial Number
+    ```
+    """
+    for serial_port in comports():
+        if serial_port.vid and serial_port.pid:
+            # Only print USB serial ports
+            print(
+                f"{serial_port.vid:04X}:{serial_port.pid:04X} - {serial_port.manufacturer} "
+                f"- {serial_port.product} - {serial_port.serial_number}"
+            )
