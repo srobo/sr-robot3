@@ -17,6 +17,9 @@ from .utils import Board, BoardIdentity
 
 LOGGER = logging.getLogger(__name__)
 
+robot_calibrations = calibrations.copy()
+robot_calibrations.append(str(Path(__file__).parent.resolve() / 'calibrations'))
+
 
 class AprilCamera(Board):
     """
@@ -55,7 +58,7 @@ class AprilCamera(Board):
         return {
             (serial := f"{camera_data.name} - {camera_data.index}"):
             cls(camera_data.index, camera_data=camera_data, serial_num=serial)
-            for camera_data in find_cameras(calibrations)
+            for camera_data in find_cameras(robot_calibrations)
         }
 
     def __init__(self, camera_id: int, camera_data: CalibratedCamera, serial_num: str) -> None:
