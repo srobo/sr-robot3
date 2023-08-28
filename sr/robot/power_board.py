@@ -4,6 +4,7 @@ from __future__ import annotations
 import atexit
 import logging
 from enum import IntEnum
+from time import sleep
 from types import MappingProxyType
 from typing import NamedTuple
 
@@ -468,7 +469,7 @@ class Piezo:
         self._serial = serial
 
     @log_to_debug
-    def buzz(self, frequency: float, duration: float) -> None:
+    def buzz(self, frequency: float, duration: float, *, blocking: bool = False) -> None:
         """
         Produce a tone on the piezo.
 
@@ -486,6 +487,9 @@ class Piezo:
 
         cmd = f'NOTE:{frequency_int}:{duration_ms}'
         self._serial.write(cmd)
+
+        if blocking:
+            sleep(duration)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
