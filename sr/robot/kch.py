@@ -4,6 +4,7 @@ from __future__ import annotations
 import atexit
 import warnings
 from enum import IntEnum, unique
+from typing import Union
 
 try:
     import RPi.GPIO as GPIO  # isort: ignore
@@ -79,7 +80,7 @@ class KCH:
                 # cause a warning as the gpio are already initialized, we can
                 # suppress this as we know the reason behind the warning
                 GPIO.setup(RobotLEDs.all_leds(), GPIO.OUT, initial=GPIO.LOW)
-            self._pwm: GPIO.PWM | None = None
+            self._pwm: Union[GPIO.PWM, None] = None
         self._leds = tuple(
             LED(rgb_led) for rgb_led in RobotLEDs.user_leds()
         )

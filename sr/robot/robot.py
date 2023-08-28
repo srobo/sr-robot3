@@ -6,7 +6,7 @@ import logging
 import time
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, Union
 
 from . import game_specific, timeout
 from ._version import __version__
@@ -50,12 +50,12 @@ class Robot:
         debug: bool = False,
         wait_for_start: bool = True,
         trace_logging: bool = False,
-        ignored_arduinos: list[str] | None = None,
-        manual_boards: dict[str, list[str]] | None = None,
-        raw_ports: list[RawSerialDevice] | None = None,
+        ignored_arduinos: Union[list[str], None] = None,
+        manual_boards: Union[dict[str, list[str]], None] = None,
+        raw_ports: Union[list[RawSerialDevice], None] = None,
     ) -> None:
         self._lock = obtain_lock()
-        self._metadata: Metadata | None = None
+        self._metadata: Union[Metadata, None] = None
 
         setup_logging(debug, trace_logging)
         ensure_atexit_on_term()
@@ -63,7 +63,7 @@ class Robot:
         logger.info(f"sr.robot version {__version__}")
 
         self._mqtt, self._astoria = init_astoria_mqtt()
-        self._code_path: Path | None = None
+        self._code_path: Union[Path, None] = None
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -80,7 +80,7 @@ class Robot:
         else:
             logger.debug("Not waiting for start button.")
 
-    def _init_power_board(self, manual_boards: list[str] | None = None) -> None:
+    def _init_power_board(self, manual_boards: Union[list[str], None] = None) -> None:
         """
         Locate the PowerBoard and enable all the outputs to power the other boards.
 
@@ -96,9 +96,9 @@ class Robot:
 
     def _init_aux_boards(
         self,
-        manual_boards: dict[str, list[str]] | None = None,
-        ignored_arduinos: list[str] | None = None,
-        raw_ports: list[RawSerialDevice] | None = None,
+        manual_boards: Union[dict[str, list[str]], None] = None,
+        ignored_arduinos: Union[list[str], None] = None,
+        raw_ports: Union[list[RawSerialDevice], None] = None,
     ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.

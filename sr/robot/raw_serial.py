@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Union
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -49,7 +49,7 @@ class RawSerial(Board):
         self,
         serial_port: str,
         baudrate: int = DEFAULT_BAUDRATE,
-        identity: BoardIdentity | None = None,
+        identity: Union[BoardIdentity, None] = None,
     ) -> None:
         if identity is None:
             identity = BoardIdentity()

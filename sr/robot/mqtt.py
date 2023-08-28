@@ -4,7 +4,7 @@ import atexit
 import json
 import logging
 from threading import Lock
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, TypedDict, Union
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
@@ -15,10 +15,10 @@ LOGGER = logging.getLogger(__name__)
 class MQTTClient:
     def __init__(
         self,
-        client_name: str | None = None,
-        topic_prefix: str | None = None,
+        client_name: Union[str, None] = None,
+        topic_prefix: Union[str, None] = None,
         mqtt_version: int = mqtt.MQTTv5,
-        use_tls: bool | str = False,
+        use_tls: Union[bool, str] = False,
         username: str = '',
         password: str = '',
     ) -> None:
@@ -112,7 +112,7 @@ class MQTTClient:
     def publish(
         self,
         topic: str,
-        payload: bytes | str,
+        payload: Union[bytes, str],
         retain: bool = False,
         *,
         abs_topic: bool = False,
@@ -135,7 +135,7 @@ class MQTTClient:
     def wrapped_publish(
         self,
         topic: str,
-        payload: bytes | str,
+        payload: Union[bytes, str],
         retain: bool = False,
         *,
         abs_topic: bool = False,
@@ -150,7 +150,7 @@ class MQTTClient:
 
     def _on_connect(
         self, client: mqtt.Client, userdata: Any, flags: dict[str, int], rc: int,
-        properties: mqtt.Properties | None = None,
+        properties: Union[mqtt.Properties, None] = None,
     ) -> None:
         """Callback run each time the client connects to the broker."""
         if rc != mqtt.CONNACK_ACCEPTED:
@@ -170,9 +170,9 @@ class MQTTVariables(TypedDict):
     host: str
     port: int
     topic_prefix: str
-    use_tls: bool | str
-    username: str | None
-    password: str | None
+    use_tls: Union[bool, str]
+    username: Union[str, None]
+    password: Union[str, None]
 
 
 def unpack_mqtt_url(url: str) -> MQTTVariables:

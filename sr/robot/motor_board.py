@@ -5,7 +5,7 @@ import atexit
 import logging
 from enum import IntEnum
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Union
 
 from serial.tools.list_ports import comports
 
@@ -72,7 +72,7 @@ class MotorBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
+        initial_identity: Union[BoardIdentity, None] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -95,8 +95,8 @@ class MotorBoard(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
-    ) -> None | MotorBoard:
+        initial_identity: Union[BoardIdentity, None] = None,
+    ) -> Union[None, MotorBoard]:
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -118,7 +118,7 @@ class MotorBoard(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: list[str] | None = None,
+        cls, manual_boards: Union[list[str], None] = None,
     ) -> MappingProxyType[str, MotorBoard]:
         """
         Find all connected motor boards.

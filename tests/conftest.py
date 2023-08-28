@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Union
 
 import pytest
 
@@ -57,7 +58,7 @@ class MockSerialWrapper:
         self._baudrate = baud
         return self
 
-    def query(self, request: str | None, endl: str = '\n') -> str:
+    def query(self, request: Union[str, None], endl: str = '\n') -> str:
         """
         Mocks sending a command and returning the response.
 

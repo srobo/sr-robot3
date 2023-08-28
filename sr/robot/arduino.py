@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from enum import Enum, IntEnum
 from types import MappingProxyType
+from typing import Union
 
 from serial.tools.list_ports import comports
 
@@ -69,7 +70,7 @@ class Arduino(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
+        initial_identity: Union[BoardIdentity, None] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -101,8 +102,8 @@ class Arduino(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
-    ) -> None | Arduino:
+        initial_identity: Union[BoardIdentity, None] = None,
+    ) -> Union[None, Arduino]:
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -125,8 +126,8 @@ class Arduino(Board):
     @classmethod
     def _get_supported_boards(
         cls,
-        manual_boards: list[str] | None = None,
-        ignored_serials: list[str] | None = None,
+        manual_boards: Union[list[str], None] = None,
+        ignored_serials: Union[list[str], None] = None,
     ) -> MappingProxyType[str, Arduino]:
         """
         Discover the connected Arduinos, by matching the USB descriptor to SUPPORTED_VID_PIDS.

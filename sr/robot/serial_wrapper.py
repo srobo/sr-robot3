@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from functools import wraps
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Union
 
 import serial
 
@@ -32,7 +32,7 @@ E = TypeVar("E", bound=BaseException)
 
 
 def retry(
-    times: int, exceptions: type[E] | tuple[type[E], ...]
+    times: int, exceptions: Union[type[E], tuple[type[E], ...]]
 ) -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
     """
     Decorator to retry a function a number of times on a given exception.
@@ -116,7 +116,7 @@ class SerialWrapper:
         self._disconnect()
 
     @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError, OSError))
-    def query(self, data: str | None, *, endl: str = '\n') -> str:
+    def query(self, data: Union[str, None], *, endl: str = '\n') -> str:
         """
         Send a command to the board and return the response.
 

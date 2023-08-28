@@ -4,7 +4,7 @@ from __future__ import annotations
 import atexit
 import logging
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Union
 
 from serial.tools.list_ports import comports
 
@@ -70,7 +70,7 @@ class ServoBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
+        initial_identity: Union[BoardIdentity, None] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -91,8 +91,8 @@ class ServoBoard(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
-    ) -> None | ServoBoard:
+        initial_identity: Union[BoardIdentity, None] = None,
+    ) -> Union[None, ServoBoard]:
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -114,7 +114,7 @@ class ServoBoard(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: list[str] | None = None,
+        cls, manual_boards: Union[list[str], None] = None,
     ) -> MappingProxyType[str, 'ServoBoard']:
         """
         Find all connected servo boards.
@@ -285,7 +285,7 @@ class Servo:
 
     @property
     @log_to_debug
-    def position(self) -> float | None:
+    def position(self) -> Union[float, None]:
         """
         Get the position of the servo.
 
@@ -301,7 +301,7 @@ class Servo:
 
     @position.setter
     @log_to_debug
-    def position(self, value: float | None) -> None:
+    def position(self, value: Union[float, None]) -> None:
         """
         Set the position of the servo.
 
