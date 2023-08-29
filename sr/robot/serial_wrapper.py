@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from functools import wraps
-from typing import Callable, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 
 import serial
 
@@ -116,7 +116,7 @@ class SerialWrapper:
         self._disconnect()
 
     @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError, OSError))
-    def query(self, data: Union[str, None], *, endl: str = '\n') -> str:
+    def query(self, data: Optional[str], *, endl: str = '\n') -> str:
         """
         Send a command to the board and return the response.
 

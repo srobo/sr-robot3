@@ -6,7 +6,7 @@ import logging
 from enum import IntEnum
 from time import sleep
 from types import MappingProxyType
-from typing import NamedTuple, Union
+from typing import NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
@@ -90,7 +90,7 @@ class PowerBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
+        initial_identity: Optional[BoardIdentity] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -113,8 +113,17 @@ class PowerBoard(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
-    ) -> Union[None, PowerBoard]:
+        initial_identity: Optional[BoardIdentity] = None,
+    ) -> Optional[PowerBoard]:
+        """
+        Attempt to connect to a power board and returning None if it fails identification.
+
+        :param serial_port: The serial port to connect to.
+        :param initial_identity: The identity of the board, as reported by the USB descriptor.
+
+        :return: A PowerBoard object, or None if the board could not be identified.
+        """
+
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -136,7 +145,7 @@ class PowerBoard(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: Union[list[str], None] = None,
+        cls, manual_boards: Optional[list[str]] = None,
     ) -> MappingProxyType[str, PowerBoard]:
         """
         Find all connected power boards.
@@ -485,9 +494,10 @@ class Piezo:
 
         :param frequency: The frequency of the tone, in Hz.
         :param duration: The duration of the tone, in seconds.
+        :param blocking: Whether to block until the tone has finished playing,
         """
         frequency_int = int(float_bounds_check(
-            frequency, 8, 10_000, "Frequency is a float in Hz between 0 and 10000"))
+            frequency, 8, 10_000, "Frequency must be between 8 and 10000Hz"))
         duration_ms = int(float_bounds_check(
             duration * 1000, 0, 2**31 - 1,
             f"Duration is a float in seconds between 0 and {(2**31-1)/1000:,.0f}"))

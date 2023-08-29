@@ -18,7 +18,8 @@ from .utils import Board, BoardIdentity
 LOGGER = logging.getLogger(__name__)
 
 robot_calibrations = calibrations.copy()
-robot_calibrations.append(str(Path(__file__).parent.resolve() / 'calibrations'))
+# Include calibrations from the package after calibrations from the user's directory
+robot_calibrations.insert(1, str(Path(__file__).parent.resolve() / 'calibrations'))
 
 
 class AprilCamera(Board):
@@ -102,12 +103,10 @@ class AprilCamera(Board):
         """
         self._cam.close()
 
-    def see(self, *, eager: bool = True, frame: Optional[NDArray] = None) -> List[Marker]:
+    def see(self, *, frame: Optional[NDArray] = None) -> List[Marker]:
         """
         Capture an image and identify fiducial markers.
 
-        :param eager: Process the pose estimations of markers immediately,
-            currently unused.
         :param frame: An image to detect markers in, instead of capturing a new one,
         :returns: list of markers that the camera could see.
         """

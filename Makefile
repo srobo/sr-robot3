@@ -3,7 +3,7 @@
 PYMODULE:=sr/robot
 TESTS:=tests
 
-all: lint isort-check type build
+all: lint isort-check type test
 
 lint:
 	flake8 $(PYMODULE)

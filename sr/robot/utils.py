@@ -6,7 +6,7 @@ import signal
 import socket
 from abc import ABC, abstractmethod
 from types import FrameType
-from typing import Any, Mapping, NamedTuple, TypeVar, Union
+from typing import Any, Mapping, NamedTuple, Optional, TypeVar
 
 from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
@@ -216,7 +216,7 @@ def ensure_atexit_on_term() -> None:
         # this is sufficient for `atexit` to trigger, so do nothing.
         return
 
-    def handle_signal(handled_signum: int, frame: Union[FrameType, None]) -> None:
+    def handle_signal(handled_signum: int, frame: Optional[FrameType]) -> None:
         """
         Handle the given signal by outputting some text and terminating the process.
         This will trigger `atexit`.
@@ -237,6 +237,7 @@ def list_ports() -> None:
     VID:PID - Manufacturer - Product - Serial Number
     ```
     """
+    print("VID:PID - Manufacturer - Product - Serial Number")
     for serial_port in comports():
         if serial_port.vid and serial_port.pid:
             # Only print USB serial ports

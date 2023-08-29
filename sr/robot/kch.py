@@ -4,7 +4,7 @@ from __future__ import annotations
 import atexit
 import warnings
 from enum import IntEnum, unique
-from typing import Union
+from typing import Optional
 
 try:
     import RPi.GPIO as GPIO  # isort: ignore
@@ -80,14 +80,14 @@ class KCH:
                 # cause a warning as the gpio are already initialized, we can
                 # suppress this as we know the reason behind the warning
                 GPIO.setup(RobotLEDs.all_leds(), GPIO.OUT, initial=GPIO.LOW)
-            self._pwm: Union[GPIO.PWM, None] = None
+            self._pwm: Optional[GPIO.PWM] = None
         self._leds = tuple(
             LED(rgb_led) for rgb_led in RobotLEDs.user_leds()
         )
 
-        # We are not running cleanup so the LED state persists after the code completes,
-        # this will cause a warning with `GPIO.setup()` which we can suppress
         if HAS_HAT:
+            # We are not running cleanup so the LED state persists after the code completes,
+            # this will cause a warning with `GPIO.setup()` which we can suppress
             # atexit.register(GPIO.cleanup)
 
             # Cleanup just the start LED to turn it off when the code exits
@@ -95,12 +95,12 @@ class KCH:
             atexit.register(GPIO.cleanup, RobotLEDs.START)  # type: ignore[call-arg]
 
     @property
-    def start(self) -> bool:
+    def _start(self) -> bool:
         """Get the state of the start LED."""
         return GPIO.input(RobotLEDs.START) if HAS_HAT else False
 
-    @start.setter
-    def start(self, value: bool) -> None:
+    @_start.setter
+    def _start(self, value: bool) -> None:
         """Set the state of the start LED."""
         if HAS_HAT:
             if self._pwm:
@@ -109,7 +109,7 @@ class KCH:
                 self._pwm = None
             GPIO.output(RobotLEDs.START, GPIO.HIGH if value else GPIO.LOW)
 
-    def flash_start(self) -> None:
+    def _flash_start(self) -> None:
         """Set the start LED flashing at 1Hz."""
         if HAS_HAT:
             self._pwm = GPIO.PWM(RobotLEDs.START, 1)

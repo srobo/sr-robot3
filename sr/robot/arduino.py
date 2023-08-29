@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from enum import Enum, IntEnum
 from types import MappingProxyType
-from typing import Union
+from typing import Optional
 
 from serial.tools.list_ports import comports
 
@@ -42,6 +42,13 @@ class AnalogPins(IntEnum):
     A5 = 19
 
 
+MODE_CHAR_MAP = {
+    GPIOPinMode.INPUT: 'i',
+    GPIOPinMode.INPUT_PULLUP: 'p',
+    GPIOPinMode.OUTPUT: 'o',
+}
+
+
 DIGITAL_READ_MODES = {GPIOPinMode.INPUT, GPIOPinMode.INPUT_PULLUP, GPIOPinMode.OUTPUT}
 DIGITAL_WRITE_MODES = {GPIOPinMode.OUTPUT}
 ANALOG_READ_MODES = {GPIOPinMode.INPUT}
@@ -70,7 +77,7 @@ class Arduino(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
+        initial_identity: Optional[BoardIdentity] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -102,8 +109,16 @@ class Arduino(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
-    ) -> Union[None, Arduino]:
+        initial_identity: Optional[BoardIdentity] = None,
+    ) -> Optional[Arduino]:
+        """
+        Attempt to connect to an Arduino and returning None if it fails identification.
+
+        :param serial_port: The serial port to connect to.
+        :param initial_identity: The identity of the board, as reported by the USB descriptor.
+
+        :return: An Arduino object, or None if the board could not be identified.
+        """
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -126,8 +141,8 @@ class Arduino(Board):
     @classmethod
     def _get_supported_boards(
         cls,
-        manual_boards: Union[list[str], None] = None,
-        ignored_serials: Union[list[str], None] = None,
+        manual_boards: Optional[list[str]] = None,
+        ignored_serials: Optional[list[str]] = None,
     ) -> MappingProxyType[str, Arduino]:
         """
         Discover the connected Arduinos, by matching the USB descriptor to SUPPORTED_VID_PIDS.
@@ -257,7 +272,7 @@ class Pin:
         """
         Get the mode of the pin.
 
-        This returns the cached value since thew board does not report this.
+        This returns the cached value since the board does not report this.
 
         :raises IOError: If this pin cannot be controlled.
         :return: The mode of the pin.
@@ -282,12 +297,7 @@ class Pin:
         if not isinstance(value, GPIOPinMode):
             raise IOError('Pin mode only supports being set to a GPIOPinMode')
 
-        mode_char_map = {
-            GPIOPinMode.INPUT: 'i',
-            GPIOPinMode.INPUT_PULLUP: 'p',
-            GPIOPinMode.OUTPUT: 'o',
-        }
-        mode_char = mode_char_map.get(value)
+        mode_char = MODE_CHAR_MAP.get(value)
         if mode_char is None:
             raise IOError(f'Pin mode {value} is not supported')
         self._serial.write(self._build_command(mode_char), endl='')
@@ -306,7 +316,7 @@ class Pin:
         if self.mode not in DIGITAL_READ_MODES:
             raise IOError(f'Digital read is not supported in {self.mode}')
         response = self._serial.query(self._build_command('r'), endl='')
-        return (response == 'h')
+        return response == 'h'
 
     @log_to_debug
     def digital_write(self, value: bool) -> None:

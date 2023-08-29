@@ -56,4 +56,4 @@ def kill_after_delay(timeout_seconds: int) -> None:
     else:
         signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(timeout_seconds)
-    logger.debug(f"Kill Signal Timeout set: {timeout_seconds}s")
+    logger.info(f"Timeout set: {timeout_seconds}s")

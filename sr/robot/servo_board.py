@@ -4,7 +4,7 @@ from __future__ import annotations
 import atexit
 import logging
 from types import MappingProxyType
-from typing import NamedTuple, Union
+from typing import NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
@@ -70,7 +70,7 @@ class ServoBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
+        initial_identity: Optional[BoardIdentity] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -91,8 +91,16 @@ class ServoBoard(Board):
     def _get_valid_board(
         cls,
         serial_port: str,
-        initial_identity: Union[BoardIdentity, None] = None,
-    ) -> Union[None, ServoBoard]:
+        initial_identity: Optional[BoardIdentity] = None,
+    ) -> Optional[ServoBoard]:
+        """
+        Attempt to connect to a servo board and returning None if it fails identification.
+
+        :param serial_port: The serial port to connect to.
+        :param initial_identity: The identity of the board, as reported by the USB descriptor.
+
+        :return: A ServoBoard object, or None if the board could not be identified.
+        """
         try:
             board = cls(serial_port, initial_identity)
         except IncorrectBoardError as err:
@@ -114,7 +122,7 @@ class ServoBoard(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: Union[list[str], None] = None,
+        cls, manual_boards: Optional[list[str]] = None,
     ) -> MappingProxyType[str, 'ServoBoard']:
         """
         Find all connected servo boards.
@@ -285,7 +293,7 @@ class Servo:
 
     @property
     @log_to_debug
-    def position(self) -> Union[float, None]:
+    def position(self) -> Optional[float]:
         """
         Get the position of the servo.
 
@@ -301,7 +309,7 @@ class Servo:
 
     @position.setter
     @log_to_debug
-    def position(self, value: Union[float, None]) -> None:
+    def position(self, value: Optional[float]) -> None:
         """
         Set the position of the servo.
 

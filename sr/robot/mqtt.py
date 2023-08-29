@@ -4,7 +4,7 @@ import atexit
 import json
 import logging
 from threading import Lock
-from typing import Any, Callable, TypedDict, Union
+from typing import Any, Callable, Optional, TypedDict, Union
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
@@ -15,8 +15,8 @@ LOGGER = logging.getLogger(__name__)
 class MQTTClient:
     def __init__(
         self,
-        client_name: Union[str, None] = None,
-        topic_prefix: Union[str, None] = None,
+        client_name: Optional[str] = None,
+        topic_prefix: Optional[str] = None,
         mqtt_version: int = mqtt.MQTTv5,
         use_tls: Union[bool, str] = False,
         username: str = '',
@@ -150,7 +150,7 @@ class MQTTClient:
 
     def _on_connect(
         self, client: mqtt.Client, userdata: Any, flags: dict[str, int], rc: int,
-        properties: Union[mqtt.Properties, None] = None,
+        properties: Optional[mqtt.Properties] = None,
     ) -> None:
         """Callback run each time the client connects to the broker."""
         if rc != mqtt.CONNACK_ACCEPTED:
@@ -171,8 +171,8 @@ class MQTTVariables(TypedDict):
     port: int
     topic_prefix: str
     use_tls: Union[bool, str]
-    username: Union[str, None]
-    password: Union[str, None]
+    username: Optional[str]
+    password: Optional[str]
 
 
 def unpack_mqtt_url(url: str) -> MQTTVariables:

@@ -6,7 +6,7 @@ import logging
 import time
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping, Union
+from typing import Mapping, Optional
 
 from . import game_specific, timeout
 from ._version import __version__
@@ -38,6 +38,7 @@ class Robot:
     :param trace_logging: Enable trace level logging to the console, defaults to False
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
+    :param raw_ports: A list of RawSerialDevice objects to try connecting to.
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
@@ -50,12 +51,12 @@ class Robot:
         debug: bool = False,
         wait_for_start: bool = True,
         trace_logging: bool = False,
-        ignored_arduinos: Union[list[str], None] = None,
-        manual_boards: Union[dict[str, list[str]], None] = None,
-        raw_ports: Union[list[RawSerialDevice], None] = None,
+        ignored_arduinos: Optional[list[str]] = None,
+        manual_boards: Optional[dict[str, list[str]]] = None,
+        raw_ports: Optional[list[RawSerialDevice]] = None,
     ) -> None:
         self._lock = obtain_lock()
-        self._metadata: Union[Metadata, None] = None
+        self._metadata: Optional[Metadata] = None
 
         setup_logging(debug, trace_logging)
         ensure_atexit_on_term()
@@ -63,7 +64,7 @@ class Robot:
         logger.info(f"sr.robot version {__version__}")
 
         self._mqtt, self._astoria = init_astoria_mqtt()
-        self._code_path: Union[Path, None] = None
+        self._code_path: Optional[Path] = None
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -79,7 +80,7 @@ class Robot:
         else:
             logger.debug("Not waiting for start button.")
 
-    def _init_power_board(self, manual_boards: Union[list[str], None] = None) -> None:
+    def _init_power_board(self, manual_boards: Optional[list[str]] = None) -> None:
         """
         Locate the PowerBoard and enable all the outputs to power the other boards.
 
@@ -95,9 +96,9 @@ class Robot:
 
     def _init_aux_boards(
         self,
-        manual_boards: Union[dict[str, list[str]], None] = None,
-        ignored_arduinos: Union[list[str], None] = None,
-        raw_ports: Union[list[RawSerialDevice], None] = None,
+        manual_boards: Optional[dict[str, list[str]]] = None,
+        ignored_arduinos: Optional[list[str]] = None,
+        raw_ports: Optional[list[RawSerialDevice]] = None,
     ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.
@@ -162,7 +163,7 @@ class Robot:
     @property
     def kch(self) -> KCH:
         """
-        Access the Raspberry Pi hat, includeing user-accessible LEDs.
+        Access the Raspberry Pi hat, including user-accessible LEDs.
 
         :returns: The KCH object
         """
@@ -291,6 +292,9 @@ class Robot:
         This is a convenience method that can be used instead of time.time().
         This exists for compatibility with the simulator API only.
 
+        NOTE: The robot's clock resets each time the robot is restarted, so this
+        will not be the correct actual time but can be used to measure elapsed time.
+
         :returns: the number of seconds since the Unix Epoch.
         """
         return time.time()
@@ -392,7 +396,7 @@ class Robot:
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
-        self.kch.flash_start()
+        self.kch._flash_start()
 
         while not (
             self.power_board._start_button() or self._astoria.get_start_button_pressed()
@@ -400,7 +404,7 @@ class Robot:
             time.sleep(0.1)
         logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
-        self.kch.start = False
+        self.kch._start = False
 
         # Load the latest metadata that we have received over MQTT
         self._metadata = self._astoria.fetch_current_metadata()

@@ -1,10 +1,12 @@
+import functools
 import logging
 import sys
+from copy import deepcopy
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from threading import Event, Lock
-from typing import Any, ClassVar, NewType, Tuple, Union
+from typing import Any, ClassVar, NewType, Optional, Tuple
 
 from paho.mqtt.client import Client as MQTT
 from paho.mqtt.client import MQTTMessage, MQTTv5, MQTTv311
@@ -17,7 +19,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-astoria_version = '0.10.0'
+ASTORIA_VERSION = '0.11.2'
 
 LOGGER = logging.getLogger(__name__)
 CONFIG_SEARCH_PATHS = [
@@ -46,20 +48,20 @@ class AstoriaConfig(BaseModel):
     mqtt: MQTTBrokerInfo
 
     @classmethod
-    def _get_config_path(cls, config_str: Union[str, None] = None) -> Path:
+    def _get_config_path(cls, config_path: Optional[str] = None) -> Path:
         """Check for a config file or search the filesystem for one."""
-        if config_str is None:
+        if config_path is None:
             for path in CONFIG_SEARCH_PATHS:
                 if path.is_file():
                     return path
         else:
-            path = Path(config_str)
+            path = Path(config_path)
             if path.is_file():
                 return path
         raise FileNotFoundError("Unable to find config file.")
 
     @classmethod
-    def load(cls, config_str: Union[str, None] = None) -> "AstoriaConfig":
+    def load(cls, config_str: Optional[str] = None) -> "AstoriaConfig":
         """Load the config."""
         config_path = cls._get_config_path(config_str)
         with config_path.open("rb") as fh:
@@ -91,13 +93,13 @@ class Metadata(BaseModel):
     zone: int = 0
     mode: RobotMode = RobotMode.DEV
     marker_offset: int = 0
-    game_timeout: Union[int, None] = None
+    game_timeout: Optional[int] = None
     wifi_enabled: bool = True
 
     # From robot settings file
-    wifi_ssid: Union[str, None] = None
-    wifi_psk: Union[str, None] = None
-    wifi_region: Union[str, None] = None
+    wifi_ssid: Optional[str] = None
+    wifi_psk: Optional[str] = None
+    wifi_region: Optional[str] = None
 
 
 # Process manager fields
@@ -143,7 +145,7 @@ class ManagerMessage(BaseModel):
         RUNNING = "RUNNING"
 
     status: Status
-    astoria_version: str = astoria_version
+    astoria_version: str = ASTORIA_VERSION
 
 
 class ProcessManagerMessage(ManagerMessage):
@@ -153,9 +155,9 @@ class ProcessManagerMessage(ManagerMessage):
     Published to astoria/astprocd
     """
 
-    code_status: Union[CodeStatus, None]
-    disk_info: Union[DiskInfo, None]
-    pid: Union[int, None]
+    code_status: Optional[CodeStatus]
+    disk_info: Optional[DiskInfo]
+    pid: Optional[int]
 
 
 class MetadataManagerMessage(ManagerMessage):
@@ -169,7 +171,7 @@ class MetadataManagerMessage(ManagerMessage):
 
 
 # Remote start event
-
+@functools.total_ordering
 class StartButtonBroadcastEvent(BaseModel):
     """
     Schema for a remote start event.
@@ -194,10 +196,9 @@ class StartButtonBroadcastEvent(BaseModel):
 class AstoriaInterface:
     def __init__(self, mqtt_client: MQTTClient) -> None:
         self._mqtt = mqtt_client
-        self._metadata_lock = Lock()
         self._metadata = Metadata()
         self._mount_path = Path("/dev/null")
-        self._mount_path_lock = Lock()
+        self._astoria_lock = Lock()
         self._start_pressed = Event()
 
         self._mqtt.subscribe("broadcast/start_button", self._process_remote_start)
@@ -224,7 +225,7 @@ class AstoriaInterface:
             message = MetadataManagerMessage.parse_raw(msg.payload)
             if message.status == MetadataManagerMessage.Status.RUNNING:
                 LOGGER.debug("Received metadata")
-                with self._metadata_lock:
+                with self._astoria_lock:
                     self._metadata = message.metadata
             else:
                 LOGGER.debug("Cannot get metadata, astmetad is not running")
@@ -240,7 +241,7 @@ class AstoriaInterface:
             if message.status == ProcessManagerMessage.Status.RUNNING:
                 LOGGER.debug("Received process info")
                 if message.disk_info:
-                    with self._mount_path_lock:
+                    with self._astoria_lock:
                         self._mount_path = message.disk_info.mount_path
             else:
                 LOGGER.debug("Cannot get process info, astprocd is not running")
@@ -249,12 +250,12 @@ class AstoriaInterface:
 
     def fetch_current_metadata(self) -> Metadata:
         """Fetch the current metadata."""
-        with self._metadata_lock:
-            return self._metadata
+        with self._astoria_lock:
+            return deepcopy(self._metadata)
 
     def fetch_mount_path(self) -> Path:
         """Fetch the current mount path."""
-        with self._mount_path_lock:
+        with self._astoria_lock:
             return self._mount_path
 
     def get_start_button_pressed(self) -> bool:
@@ -264,7 +265,7 @@ class AstoriaInterface:
         return pressed
 
 
-def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot3') -> 'MQTTClient':
+def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot') -> 'MQTTClient':
     """
     Helper method to create an MQTT client and connect.
 
