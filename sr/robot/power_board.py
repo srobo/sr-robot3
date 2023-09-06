@@ -345,7 +345,7 @@ class Output:
         return response == '1'
 
     @is_enabled.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def is_enabled(self, value: bool) -> None:
         """
         Set whether the output is enabled.

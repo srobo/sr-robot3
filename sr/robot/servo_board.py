@@ -308,7 +308,7 @@ class Servo:
         return map_to_float(data, self._duty_min, self._duty_max, -1.0, 1.0, precision=3)
 
     @position.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def position(self, value: Optional[float]) -> None:
         """
         Set the position of the servo.

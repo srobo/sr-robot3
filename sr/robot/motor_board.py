@@ -257,7 +257,7 @@ class Motor:
         return map_to_float(value, -1000, 1000, -1.0, 1.0, precision=3)
 
     @power.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def power(self, value: float) -> None:
         """
         Set the power of the motor.

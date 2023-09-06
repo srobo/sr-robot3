@@ -281,7 +281,7 @@ class Pin:
         return self._mode
 
     @mode.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def mode(self, value: GPIOPinMode) -> None:
         """
         Set the mode of the pin.
