@@ -1,4 +1,4 @@
-"""General utility functions and classes for the sr-robot package."""
+"""General utility functions and classes for the sr-robot3 package."""
 from __future__ import annotations
 
 import logging

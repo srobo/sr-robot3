@@ -10,9 +10,9 @@ from typing import NamedTuple
 
 import pytest
 
-from sr.robot.exceptions import IncorrectBoardError
-from sr.robot.servo_board import ServoBoard
-from sr.robot.utils import singular
+from sr.robot3.exceptions import IncorrectBoardError
+from sr.robot3.servo_board import ServoBoard
+from sr.robot3.utils import singular
 
 from .conftest import MockAtExit, MockSerialWrapper
 
@@ -30,8 +30,8 @@ def servoboard_serial(monkeypatch) -> None:
         ("*IDN?", "Student Robotics:SBv4B:TEST123:4.3"),  # Called by ServoBoard.__init__
     ])
     mock_atexit = MockAtExit()
-    monkeypatch.setattr('sr.robot.servo_board.atexit', mock_atexit)
-    monkeypatch.setattr('sr.robot.servo_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.servo_board.atexit', mock_atexit)
+    monkeypatch.setattr('sr.robot3.servo_board.SerialWrapper', serial_wrapper)
     servo_board = ServoBoard('test://')
 
     assert servo_board._cleanup in mock_atexit._callbacks
@@ -274,9 +274,9 @@ def test_servo_board_discovery(monkeypatch) -> None:
         ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # Manual invalid board
     ])
     # mock atexit so we don't end up registering the cleanup method
-    monkeypatch.setattr('sr.robot.servo_board.atexit', MockAtExit())
-    monkeypatch.setattr('sr.robot.servo_board.SerialWrapper', serial_wrapper)
-    monkeypatch.setattr('sr.robot.servo_board.comports', mock_comports)
+    monkeypatch.setattr('sr.robot3.servo_board.atexit', MockAtExit())
+    monkeypatch.setattr('sr.robot3.servo_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.servo_board.comports', mock_comports)
 
     servo_boards = ServoBoard._get_supported_boards(manual_boards=['test://2', 'test://4'])
     assert len(servo_boards) == 2
@@ -290,7 +290,7 @@ def test_servo_board_invalid_identity(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
         ("*IDN?", "Student Robotics:TestBoard:TEST123:4.3"),  # Called by ServoBoard.__init__
     ])
-    monkeypatch.setattr('sr.robot.servo_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.servo_board.SerialWrapper', serial_wrapper)
 
     with pytest.raises(
         IncorrectBoardError,

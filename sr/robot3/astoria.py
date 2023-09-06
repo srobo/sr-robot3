@@ -265,7 +265,7 @@ class AstoriaInterface:
         return pressed
 
 
-def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot') -> 'MQTTClient':
+def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot3') -> 'MQTTClient':
     """
     Helper method to create an MQTT client and connect.
 

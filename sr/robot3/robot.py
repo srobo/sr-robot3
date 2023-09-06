@@ -1,4 +1,4 @@
-"""The main entry point for the sr-robot package."""
+"""The main entry point for the sr-robot3 package."""
 from __future__ import annotations
 
 import itertools
@@ -61,7 +61,7 @@ class Robot:
         setup_logging(debug, trace_logging)
         ensure_atexit_on_term()
 
-        logger.info(f"sr.robot version {__version__}")
+        logger.info(f"sr.robot3 version {__version__}")
 
         self._mqtt, self._astoria = init_astoria_mqtt()
         self._code_path: Optional[Path] = None

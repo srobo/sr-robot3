@@ -1,12 +1,12 @@
-# sr-robot
+# sr-robot3
 
 [![Lint & build](https://github.com/srobo/sr-robot/actions/workflows/test_build.yml/badge.svg)](https://github.com/srobo/sr-robot/actions/workflows/test_build.yml)
-[![PyPI version](https://badge.fury.io/py/sr-robot.svg)](https://badge.fury.io/py/sr-robot)
+[![PyPI version](https://badge.fury.io/py/sr-robot3.svg)](https://badge.fury.io/py/sr-robot3)
 [![Documentation Status](https://readthedocs.org/projects/pip/badge/?version=stable)](http://pip.pypa.io/en/stable/?badge=stable)
 [![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://opensource.org/licenses/MIT)
 ![Bees](https://img.shields.io/badge/bees-110%25-yellow.svg)
 
-`sr-robot` - Python 3 API for Student Robotics Kit
+`sr-robot3` - Python 3 API for Student Robotics Kit
 
 This is the API for Student Robotics, library for writing Robotics APIs.
 It will first be deployed at Student Robotics 2024.
@@ -16,13 +16,13 @@ It will first be deployed at Student Robotics 2024.
 If you wish to install openCV from your package manager, you can install the base package with:
 
 ```bash
-pip install sr-robot
+pip install sr-robot3
 ```
 
 To install the full package, including openCV, you can install with:
 
 ```bash
-pip install sr-robot[vision]
+pip install sr-robot3[vision]
 ```
 
 ## Usage
@@ -33,7 +33,7 @@ By default, the `Robot` class will wait for the start button on the power board 
 
 ```python
 
-from sr.robot import Robot
+from sr.robot3 import Robot
 
 r = Robot()
 
@@ -44,7 +44,7 @@ The `wait_for_start` method needs to be called before the metadata is available.
 
 ```python
 
-from sr.robot import Robot
+from sr.robot3 import Robot
 
 r = Robot(wait_for_start=False)
 
@@ -63,4 +63,4 @@ Some of these may not be immediately obvious, so they are documented below.
 - `MappingProxyType` is used to prevent the user from adding, removing or overwriting keys in any parts of the API that return a dictionary.
 - `tuple` is used to prevent the user from adding, removing or overwriting items in any parts of the API that would return a list.
 - `__slots__` is used to prevent the user from adding, removing or overwriting attributes in any parts of the API.
-- `sr.robot.serial_wrapper.SerialWrapper` handles automatic reconnection to the serial port if the connection is lost and impleents 3 retries on any serial operation before raising a `BoardDisconnectionError`.
+- `sr.robot3.serial_wrapper.SerialWrapper` handles automatic reconnection to the serial port if the connection is lost and impleents 3 retries on any serial operation before raising a `BoardDisconnectionError`.

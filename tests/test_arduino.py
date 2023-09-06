@@ -10,8 +10,8 @@ from typing import NamedTuple
 
 import pytest
 
-from sr.robot.arduino import AnalogPins, Arduino, GPIOPinMode
-from sr.robot.utils import BoardIdentity, singular
+from sr.robot3.arduino import AnalogPins, Arduino, GPIOPinMode
+from sr.robot3.utils import BoardIdentity, singular
 
 from .conftest import MockSerialWrapper
 
@@ -28,7 +28,7 @@ def arduino_serial(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
         ("v", "SRduino:2.0"),  # Called by Arduino.__init__
     ])
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.arduino.SerialWrapper', serial_wrapper)
     arduino_board = Arduino('test://', initial_identity=BoardIdentity(asset_tag='TEST123'))
 
     yield MockArduino(serial_wrapper, arduino_board)
@@ -208,8 +208,8 @@ def test_arduino_board_discovery(monkeypatch) -> None:
         ("v", "SRduino:2.0"),  # identity check
         ("v", "SRcustom:3.0"),  # identity check
     ])
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
-    monkeypatch.setattr('sr.robot.arduino.comports', mock_comports)
+    monkeypatch.setattr('sr.robot3.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.arduino.comports', mock_comports)
 
     arduino_boards = Arduino._get_supported_boards(manual_boards=['test://2', 'test://4'])
     assert len(arduino_boards) == 2
@@ -232,7 +232,7 @@ def test_arduino_board_new_sourcebots_identity(monkeypatch, caplog) -> None:
     serial_wrapper = MockSerialWrapper([
         ("v", "NACK:Invalid command"),  # Called by Arduino.__init__
     ])
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.arduino.SerialWrapper', serial_wrapper)
 
     with caplog.at_level(logging.WARNING):
         arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
@@ -250,7 +250,7 @@ def test_arduino_board_old_sourcebots_identity(monkeypatch, caplog) -> None:
     serial_wrapper = MockSerialWrapper([
         ("v", "Error, unknown command: v"),  # Called by Arduino.__init__
     ])
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.arduino.SerialWrapper', serial_wrapper)
 
     with caplog.at_level(logging.WARNING):
         arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))

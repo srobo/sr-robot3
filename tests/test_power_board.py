@@ -10,9 +10,9 @@ from typing import NamedTuple
 
 import pytest
 
-from sr.robot.exceptions import IncorrectBoardError
-from sr.robot.power_board import Note, PowerBoard, PowerOutputPosition
-from sr.robot.utils import singular
+from sr.robot3.exceptions import IncorrectBoardError
+from sr.robot3.power_board import Note, PowerBoard, PowerOutputPosition
+from sr.robot3.utils import singular
 
 from .conftest import MockAtExit, MockSerialWrapper
 
@@ -30,8 +30,8 @@ def powerboard_serial(monkeypatch) -> None:
         ("*IDN?", "Student Robotics:PBv4B:TEST123:4.4.1"),  # Called by PowerBoard.__init__
     ])
     mock_atexit = MockAtExit()
-    monkeypatch.setattr('sr.robot.power_board.atexit', mock_atexit)
-    monkeypatch.setattr('sr.robot.power_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.power_board.atexit', mock_atexit)
+    monkeypatch.setattr('sr.robot3.power_board.SerialWrapper', serial_wrapper)
     power_board = PowerBoard('test://')
 
     assert power_board._cleanup in mock_atexit._callbacks
@@ -387,9 +387,9 @@ def test_power_board_discovery(monkeypatch) -> None:
         ("*IDN?", "Student Robotics:OTHER:TESTABC:4.4.1"),  # Manual invalid board
     ])
     # mock atexit so we don't end up registering the cleanup method
-    monkeypatch.setattr('sr.robot.power_board.atexit', MockAtExit())
-    monkeypatch.setattr('sr.robot.power_board.SerialWrapper', serial_wrapper)
-    monkeypatch.setattr('sr.robot.power_board.comports', mock_comports)
+    monkeypatch.setattr('sr.robot3.power_board.atexit', MockAtExit())
+    monkeypatch.setattr('sr.robot3.power_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.power_board.comports', mock_comports)
 
     power_boards = PowerBoard._get_supported_boards(manual_boards=['test://2', 'test://4'])
     assert len(power_boards) == 2
@@ -403,7 +403,7 @@ def test_power_board_invalid_identity(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
         ("*IDN?", "Student Robotics:TestBoard:TEST123:4.4.1"),  # Called by PowerBoard.__init__
     ])
-    monkeypatch.setattr('sr.robot.power_board.SerialWrapper', serial_wrapper)
+    monkeypatch.setattr('sr.robot3.power_board.SerialWrapper', serial_wrapper)
 
     with pytest.raises(
         IncorrectBoardError,

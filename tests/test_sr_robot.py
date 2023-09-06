@@ -4,11 +4,10 @@ import signal
 import socket
 
 import pytest
-import signal
 
-from sr.robot import Robot
-from sr.robot.exceptions import MetadataNotReadyError
-from sr.robot.utils import BoardIdentity, obtain_lock
+from sr.robot3 import Robot
+from sr.robot3.exceptions import MetadataNotReadyError
+from sr.robot3.utils import BoardIdentity, obtain_lock
 
 from .conftest import MockAtExit, MockSerialWrapper
 
@@ -16,7 +15,7 @@ from .conftest import MockAtExit, MockSerialWrapper
 def test_robot(monkeypatch, caplog) -> None:
     """Test that the Robot object can be created."""
     # monkey patch serial ports so we can test without hardware
-    monkeypatch.setattr('sr.robot.power_board.SerialWrapper', MockSerialWrapper([
+    monkeypatch.setattr('sr.robot3.power_board.SerialWrapper', MockSerialWrapper([
         ("*IDN?", "Student Robotics:PBv4B:POW123:4.4.1"),
         ("OUT:0:SET:1", "ACK"),
         ("OUT:1:SET:1", "ACK"),
@@ -32,32 +31,32 @@ def test_robot(monkeypatch, caplog) -> None:
         ("BTN:START:GET?", "0:1"),
         ("LED:RUN:SET:1", "ACK"),
     ]))
-    monkeypatch.setattr('sr.robot.motor_board.SerialWrapper', MockSerialWrapper([
+    monkeypatch.setattr('sr.robot3.motor_board.SerialWrapper', MockSerialWrapper([
         ("*IDN?", "Student Robotics:MCv4B:MOT123:4.4"),
         ("*IDN?", "Student Robotics:MCv4B:MOT123:4.4"),
     ]))
-    monkeypatch.setattr('sr.robot.servo_board.SerialWrapper', MockSerialWrapper([
+    monkeypatch.setattr('sr.robot3.servo_board.SerialWrapper', MockSerialWrapper([
         ("*IDN?", "Student Robotics:SBv4B:TEST123:4.3"),
         ("*IDN?", "Student Robotics:SBv4B:TEST123:4.3"),
     ]))
-    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', MockSerialWrapper([
+    monkeypatch.setattr('sr.robot3.arduino.SerialWrapper', MockSerialWrapper([
         ("v", "SRduino:2.0"),
         ("v", "SRduino:2.0"),
     ]))
 
     # monkey patch atexit to avoid running cleanup code
-    monkeypatch.setattr('sr.robot.power_board.atexit', MockAtExit())
-    monkeypatch.setattr('sr.robot.motor_board.atexit', MockAtExit())
-    monkeypatch.setattr('sr.robot.servo_board.atexit', MockAtExit())
+    monkeypatch.setattr('sr.robot3.power_board.atexit', MockAtExit())
+    monkeypatch.setattr('sr.robot3.motor_board.atexit', MockAtExit())
+    monkeypatch.setattr('sr.robot3.servo_board.atexit', MockAtExit())
 
     # Monkey patch serial comport lookup so only manual boards are found
-    monkeypatch.setattr('sr.robot.power_board.comports', lambda: [])
-    monkeypatch.setattr('sr.robot.motor_board.comports', lambda: [])
-    monkeypatch.setattr('sr.robot.servo_board.comports', lambda: [])
-    monkeypatch.setattr('sr.robot.arduino.comports', lambda: [])
+    monkeypatch.setattr('sr.robot3.power_board.comports', lambda: [])
+    monkeypatch.setattr('sr.robot3.motor_board.comports', lambda: [])
+    monkeypatch.setattr('sr.robot3.servo_board.comports', lambda: [])
+    monkeypatch.setattr('sr.robot3.arduino.comports', lambda: [])
 
     # Forget the camera
-    monkeypatch.setattr('sr.robot.robot._setup_cameras', lambda *_: {})
+    monkeypatch.setattr('sr.robot3.robot._setup_cameras', lambda *_: {})
 
     manual_boards = {
         'PBv4B': ['test://'],
@@ -67,9 +66,9 @@ def test_robot(monkeypatch, caplog) -> None:
     }
     # check logging
     caplog.clear()
-    caplog.set_level(logging.CRITICAL, logger='sr.robot.mqtt')
-    caplog.set_level(logging.CRITICAL, logger='sr.robot.astoria')
-    caplog.set_level(logging.INFO, logger='sr.robot.robot')
+    caplog.set_level(logging.CRITICAL, logger='sr.robot3.mqtt')
+    caplog.set_level(logging.CRITICAL, logger='sr.robot3.astoria')
+    caplog.set_level(logging.INFO, logger='sr.robot3.robot')
 
     # Test that we can obtain a lock before creating a robot object
     lock = obtain_lock()
@@ -80,10 +79,10 @@ def test_robot(monkeypatch, caplog) -> None:
     r = Robot(wait_for_start=False, manual_boards=manual_boards, debug=True)
     assert caplog.record_tuples[1:] == [
         # First line contains the version number
-        ('sr.robot.robot', logging.INFO, 'Found PowerBoard, serial: POW123'),
-        ('sr.robot.robot', logging.INFO, 'Found MotorBoard, serial: MOT123'),
-        ('sr.robot.robot', logging.INFO, 'Found ServoBoard, serial: TEST123'),
-        ('sr.robot.robot', logging.INFO, 'Found Arduino, serial: test://'),
+        ('sr.robot3.robot', logging.INFO, 'Found PowerBoard, serial: POW123'),
+        ('sr.robot3.robot', logging.INFO, 'Found MotorBoard, serial: MOT123'),
+        ('sr.robot3.robot', logging.INFO, 'Found ServoBoard, serial: TEST123'),
+        ('sr.robot3.robot', logging.INFO, 'Found Arduino, serial: test://'),
     ]
 
     # Check we found all the boards
@@ -129,7 +128,6 @@ def test_robot(monkeypatch, caplog) -> None:
 @pytest.mark.hardware
 def test_robot_discovery() -> None:
     """Test that we can discover all the boards when creating a Robot object."""
-    from sr.robot import Robot
     robot = Robot(wait_for_start=False)
 
     # Test that we can access the singular boards

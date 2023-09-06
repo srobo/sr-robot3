@@ -22,7 +22,7 @@ check_untyped_defs = true
 [tool.isort]
 atomic = true
 balanced_wrapping = true
-known_first_party = "sr.robot"
+known_first_party = "sr.robot3"
 
 # hanging grid grouped indent style wrapping
 multi_line_output = 5
@@ -38,13 +38,13 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "sr/robot/_version.py"
+write_to = "sr/robot3/_version.py"
 
 [tool.setuptools]
-packages = ["sr.robot"]
+packages = ["sr.robot3"]
 
 [project]
-name = "sr.robot"
+name = "sr-robot3"
 description = "Student Robotics API for Python 3"
 authors = [{name = "Student Robotics", email =  "kit-team@studentrobotics.org"}]
 readme = "README.md"
