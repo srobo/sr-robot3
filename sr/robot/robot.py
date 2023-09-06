@@ -3,26 +3,24 @@ from __future__ import annotations
 
 import itertools
 import logging
-from time import sleep
+import time
+from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, Optional
 
-from . import game_specific, metadata, timeout
+from . import game_specific, timeout
 from ._version import __version__
 from .arduino import Arduino
+from .astoria import Metadata, RobotMode, init_astoria_mqtt
 from .camera import AprilCamera, _setup_cameras
 from .exceptions import MetadataNotReadyError
+from .kch import KCH
 from .logging import log_to_debug, setup_logging
-from .metadata import Metadata
 from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
+from .raw_serial import RawSerial, RawSerialDevice
 from .servo_board import ServoBoard
 from .utils import ensure_atexit_on_term, obtain_lock, singular
-
-try:
-    from .mqtt import MQTT_VALID, MQTTClient, get_mqtt_variables
-except ImportError:
-    MQTT_VALID = False
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +38,11 @@ class Robot:
     :param trace_logging: Enable trace level logging to the console, defaults to False
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
+    :param raw_ports: A list of RawSerialDevice objects to try connecting to.
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
-        '_arduinos', '_cameras', '_mqttc',
+        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path', '_kch', '_raw_ports',
     )
 
     def __init__(
@@ -52,29 +51,36 @@ class Robot:
         debug: bool = False,
         wait_for_start: bool = True,
         trace_logging: bool = False,
-        manual_boards: dict[str, list[str]] | None = None,
+        ignored_arduinos: Optional[list[str]] = None,
+        manual_boards: Optional[dict[str, list[str]]] = None,
+        raw_ports: Optional[list[RawSerialDevice]] = None,
     ) -> None:
         self._lock = obtain_lock()
-        self._metadata: Metadata | None = None
+        self._metadata: Optional[Metadata] = None
 
         setup_logging(debug, trace_logging)
         ensure_atexit_on_term()
 
-        logger.info(f"SourceBots API v{__version__}")
+        logger.info(f"sr.robot version {__version__}")
+
+        self._mqtt, self._astoria = init_astoria_mqtt()
+        self._code_path: Optional[Path] = None
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
-            self._init_aux_boards(manual_boards)
         else:
             self._init_power_board()
-            self._init_aux_boards()
+        self._init_aux_boards(manual_boards, ignored_arduinos, raw_ports)
         self._init_camera()
         self._log_connected_boards()
 
         if wait_for_start:
+            logger.debug("Waiting for start button.")
             self.wait_start()
+        else:
+            logger.debug("Not waiting for start button.")
 
-    def _init_power_board(self, manual_boards: list[str] | None = None) -> None:
+    def _init_power_board(self, manual_boards: Optional[list[str]] = None) -> None:
         """
         Locate the PowerBoard and enable all the outputs to power the other boards.
 
@@ -84,10 +90,16 @@ class Robot:
         """
         power_boards = PowerBoard._get_supported_boards(manual_boards)
         self._power_board = singular(power_boards)
-        self._power_board.outputs.power_on()
-        # TODO delay for boards to power up ???
 
-    def _init_aux_boards(self, manual_boards: dict[str, list[str]] | None = None) -> None:
+        # Enable all the outputs, so that we can find other boards.
+        self._power_board.outputs.power_on()
+
+    def _init_aux_boards(
+        self,
+        manual_boards: Optional[dict[str, list[str]]] = None,
+        ignored_arduinos: Optional[list[str]] = None,
+        raw_ports: Optional[list[RawSerialDevice]] = None,
+    ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.
 
@@ -98,6 +110,7 @@ class Robot:
         :param manual_boards:  A dictionary of board types to a list of additional
             serial port paths that should be checked for boards of that type, defaults to None
         """
+        self._raw_ports: MappingProxyType[str, RawSerial] = MappingProxyType({})
         if manual_boards is None:
             manual_boards = {}
 
@@ -105,9 +118,12 @@ class Robot:
         manual_servoboards = manual_boards.get(ServoBoard.get_board_type(), [])
         manual_arduinos = manual_boards.get(Arduino.get_board_type(), [])
 
+        self._kch = KCH()
         self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
-        self._arduinos = Arduino._get_supported_boards(manual_arduinos)
+        self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
+        if raw_ports:
+            self._raw_ports = RawSerial._get_supported_boards(raw_ports)
 
     def _init_camera(self) -> None:
         """
@@ -116,16 +132,10 @@ class Robot:
         These cameras are used for AprilTag detection and provide location data of
         markers in its field of view.
         """
-        if MQTT_VALID:
-            # get the config from env vars
-            mqtt_config = get_mqtt_variables()
-            self._mqttc = MQTTClient.establish(**mqtt_config)
-            self._cameras = MappingProxyType(_setup_cameras(
-                game_specific.MARKER_SIZES,
-                self._mqttc.wrapped_publish,
-            ))
-        else:
-            self._cameras = MappingProxyType(_setup_cameras(game_specific.MARKER_SIZES))
+        self._cameras = MappingProxyType(_setup_cameras(
+            game_specific.MARKER_SIZES,
+            self._mqtt.wrapped_publish,
+        ))
 
     def _log_connected_boards(self) -> None:
         """
@@ -139,6 +149,7 @@ class Robot:
             self.servo_boards.values(),
             self.arduinos.values(),
             self._cameras.values(),
+            self.raw_serial_devices.values(),
         )
         for board in boards:
             identity = board.identify()
@@ -148,6 +159,15 @@ class Robot:
                 f"Firmware Version of {identity.asset_tag}: {identity.sw_version}, "
                 f"reported type: {identity.board_type}",
             )
+
+    @property
+    def kch(self) -> KCH:
+        """
+        Access the Raspberry Pi hat, including user-accessible LEDs.
+
+        :returns: The KCH object
+        """
+        return self._kch
 
     @property
     def power_board(self) -> PowerBoard:
@@ -240,32 +260,74 @@ class Robot:
         """
         return singular(self._cameras)
 
+    @property
+    def raw_serial_devices(self) -> Mapping[str, RawSerial]:
+        """
+        Access the raw serial devices connected to the robot.
+
+        These are populated by the `raw_ports` parameter of the constructor,
+        and are indexed by their serial number.
+
+        :return: A mapping of serial numbers to raw serial devices
+        """
+        return self._raw_ports
+
     @log_to_debug
     def sleep(self, secs: float) -> None:
         """
         Sleep for a number of seconds.
 
         This is a convenience method that can be used instead of time.sleep().
+        This exists for compatibility with the simulator API only.
 
         :param secs: The number of seconds to sleep for
         """
-        sleep(secs)
+        time.sleep(secs)
+
+    @log_to_debug
+    def time(self) -> float:
+        """
+        Get the number of seconds since the Unix Epoch.
+
+        This is a convenience method that can be used instead of time.time().
+        This exists for compatibility with the simulator API only.
+
+        NOTE: The robot's clock resets each time the robot is restarted, so this
+        will not be the correct actual time but can be used to measure elapsed time.
+
+        :returns: the number of seconds since the Unix Epoch.
+        """
+        return time.time()
+
+    def print_wifi_details(self) -> None:
+        """
+        Prints the current WiFi details stored in robot-settings.toml.
+
+        :raises MetadataNotReadyError: If the start button has not been pressed yet
+        """
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+
+        if not self._metadata.wifi_enabled:
+            logger.warning("Could not print WiFi details - WiFi is not enabled")
+            return
+        logger.info("WiFi credentials:")
+        logger.info(f"SSID: {self._metadata.wifi_ssid}")
+        logger.info(f"Password: {self._metadata.wifi_psk}")
 
     @property
     @log_to_debug
-    def metadata(self) -> Metadata:
+    def arena(self) -> str:
         """
-        Fetch the robot's current metadata.
+        Get the arena that the robot is in.
 
-        See the metadata module for more information.
-
+        :return: The robot's arena
         :raises MetadataNotReadyError: If the start button has not been pressed yet
-        :return: The metadata dictionary
         """
         if self._metadata is None:
             raise MetadataNotReadyError()
         else:
-            return self._metadata
+            return self._metadata.arena
 
     @property
     @log_to_debug
@@ -276,18 +338,46 @@ class Robot:
         :return: The robot's zone number
         :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
-        return self.metadata['zone']
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._metadata.zone
 
     @property
     @log_to_debug
-    def is_competition(self) -> bool:
+    def mode(self) -> RobotMode:
         """
-        Find out if the robot is in competition mode.
+        Get the mode that the robot is in.
 
-        :return: Whether the robot is in competition mode
+        :return: The robot's current mode
         :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
-        return self.metadata['is_competition']
+        if self._metadata is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._metadata.mode
+
+    @property
+    def usbkey(self) -> Path:
+        """
+        The path of the USB code drive.
+
+        :returns: path to the mountpoint of the USB code drive.
+        :raises MetadataNotReadyError: If the start button has not been pressed yet
+        """
+        if self._code_path is None:
+            raise MetadataNotReadyError()
+        else:
+            return self._code_path
+
+    @property
+    def is_simulated(self) -> bool:
+        """
+        Determine whether the robot is simulated.
+
+        :returns: True if the robot is simulated. False otherwise.
+        """
+        return False
 
     @log_to_debug
     def wait_start(self) -> None:
@@ -301,18 +391,24 @@ class Robot:
         """
         # ignore previous button presses
         _ = self.power_board._start_button()
+        _ = self._astoria.get_start_button_pressed()
         logger.info('Waiting for start button.')
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
+        self.kch._flash_start()
 
-        while not self.power_board._start_button():
-            sleep(0.1)
-        logger.info("Start button pressed.")
+        while not (
+            self.power_board._start_button() or self._astoria.get_start_button_pressed()
+        ):
+            time.sleep(0.1)
+        logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
+        self.kch._start = False
 
-        if self._metadata is None:
-            self._metadata = metadata.load()
+        # Load the latest metadata that we have received over MQTT
+        self._metadata = self._astoria.fetch_current_metadata()
+        self._code_path = self._astoria.fetch_mount_path()
 
-        if self.is_competition:
-            timeout.kill_after_delay(game_specific.GAME_LENGTH)
+        if self._metadata.game_timeout is not None:
+            timeout.kill_after_delay(self._metadata.game_timeout)

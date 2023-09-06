@@ -5,13 +5,12 @@ This test uses a mock serial wrapper to simulate the connection to the arduino b
 """
 from __future__ import annotations
 
-import re
+import logging
 from typing import NamedTuple
 
 import pytest
 
 from sr.robot.arduino import AnalogPins, Arduino, GPIOPinMode
-from sr.robot.exceptions import IncorrectBoardError
 from sr.robot.utils import BoardIdentity, singular
 
 from .conftest import MockSerialWrapper
@@ -27,7 +26,7 @@ class MockArduino(NamedTuple):
 @pytest.fixture
 def arduino_serial(monkeypatch) -> None:
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Called by Arduino.__init__
+        ("v", "SRduino:2.0"),  # Called by Arduino.__init__
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
     arduino_board = Arduino('test://', initial_identity=BoardIdentity(asset_tag='TEST123'))
@@ -46,7 +45,7 @@ def test_arduino_board_identify(arduino_serial: MockArduino) -> None:
     """
     serial_wrapper = arduino_serial.serial_wrapper
     serial_wrapper._add_responses([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
+        ("v", "SSRduino:2.0"),
     ])
     arduino_board = arduino_serial.arduino_board
 
@@ -54,34 +53,28 @@ def test_arduino_board_identify(arduino_serial: MockArduino) -> None:
     assert serial_wrapper._port == 'test://'
 
     # Test that the identity is correctly set from the first *IDN? response
-    assert arduino_board._identity.board_type == "Arduino"
+    assert arduino_board._identity.board_type == "SRduino"
     assert arduino_board._identity.asset_tag == "TEST123"
 
     # Test identify returns the identity
     assert arduino_board.identify().asset_tag == "TEST123"
 
 
-def test_arduino_ultrasound(arduino_serial: MockArduino) -> None:
+def test_arduino_custom_command(arduino_serial: MockArduino) -> None:
     """
-    Test the arduino ultrasound method.
+    Test that we can send a custom command to the arduino board.
 
     This test uses the mock serial wrapper to simulate the arduino.
     """
     arduino = arduino_serial.arduino_board
     arduino_serial.serial_wrapper._add_responses([
-        ("ULTRASOUND:5:6:MEASURE?", "2345"),
+        ("test:f", "ACK123"),
     ])
 
-    # Test that the ultrasound method returns the correct value
-    assert arduino.ultrasound_measure(5, 6) == 2345
-
-    # Test that the ultrasound method checks the pin numbers are valid
-    with pytest.raises(ValueError):
-        arduino.ultrasound_measure(0, 1)
-    with pytest.raises(ValueError):
-        arduino.ultrasound_measure(2, 25)
-    with pytest.raises(ValueError):
-        arduino.ultrasound_measure(25, 2)
+    # Test that we can send a custom command
+    pin_str = arduino.map_pin_number(5)
+    assert pin_str == "f"  # zero indexed from 'a'
+    assert arduino.command(f"test:{pin_str}") == "ACK123"
 
 
 def test_arduino_pins(arduino_serial: MockArduino) -> None:
@@ -92,19 +85,10 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     """
     arduino = arduino_serial.arduino_board
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:2:MODE:SET:OUTPUT", "ACK"),
-        ("PIN:10:MODE:SET:INPUT_PULLUP", "ACK"),
-        ("PIN:14:MODE:SET:INPUT", "ACK"),
-        # PIN:<n>:ANALOG:GET?
+        ("oc", ""),  # pin 2 is set to output
+        ("pk", ""),  # pin 10 is set to input pullup
+        ("io", ""),  # pin 14 is set to input
     ])
-
-    # Test that we can get the mode of a pin
-    assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
-    assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
-    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
 
     with pytest.raises(IOError):
         arduino.pins[2].mode = 1
@@ -114,51 +98,46 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     arduino.pins[10].mode = GPIOPinMode.INPUT_PULLUP
     arduino.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
 
+    # Test that we can get the mode of a pin
+    assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
+    assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
+    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
+
     # Test that we can get the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before digital value
-        ("PIN:2:DIGITAL:GET?", "1"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:10:DIGITAL:GET?", "0"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:DIGITAL:GET?", "1"),
+        ("rc", "h"),  # pin 2 read
+        ("rk", "l"),  # pin 10 read
+        ("ro", "h"),  # pin 14 read
     ])
-    assert arduino.pins[2].digital_value is True
-    assert arduino.pins[10].digital_value is False
-    assert arduino.pins[AnalogPins.A0].digital_value is True
+    assert arduino.pins[2].digital_read() is True
+    assert arduino.pins[10].digital_read() is False
+    assert arduino.pins[AnalogPins.A0].digital_read() is True
 
     # Test that we can set the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before digital value
-        ("PIN:2:DIGITAL:SET:1", "ACK"),
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:2:DIGITAL:SET:0", "ACK"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:10:MODE:GET?", "INPUT_PULLUP"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:MODE:GET?", "INPUT"),
+        ("hc", "ACK"),  # pin 2 write
+        ("lc", "ACK"),  # pin 2 write
     ])
-    arduino.pins[2].digital_value = True
-    arduino.pins[2].digital_value = False
+    arduino.pins[2].digital_write(True)
+    arduino.pins[2].digital_write(False)
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
-        arduino.pins[10].digital_value = False
+        arduino.pins[10].digital_write(False)
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
-        arduino.pins[AnalogPins.A0].digital_value = True
+        arduino.pins[AnalogPins.A0].digital_write(True)
 
     # Test that we can get the analog value of a pin
     arduino_serial.serial_wrapper._add_responses([
-        ("PIN:2:MODE:GET?", "OUTPUT"),  # mode is read before analog value
-        ("PIN:2:MODE:GET?", "OUTPUT"),
-        ("PIN:10:MODE:GET?", "INPUT"),
-        ("PIN:14:MODE:GET?", "INPUT"),
-        ("PIN:14:ANALOG:GET?", "1000"),
+        ("il", ""),  # pin 11 is set to input
+        ("ao", "1000"),  # pin 14 analog read
     ])
     with pytest.raises(IOError, match=r"Analog read is not supported.*"):
-        arduino.pins[2].analog_value
+        arduino.pins[2].analog_read()
+
+    arduino.pins[11].mode = GPIOPinMode.INPUT
     with pytest.raises(IOError, match=r"Pin does not support analog read"):
-        arduino.pins[10].analog_value
+        arduino.pins[11].analog_read()
     # 4.888 = round((5 / 1023) * 1000, 3)
-    assert arduino.pins[AnalogPins.A0].analog_value == 4.888
+    assert arduino.pins[AnalogPins.A0].analog_read() == 4.888
 
 
 def test_invalid_properties(arduino_serial: MockArduino) -> None:
@@ -222,10 +201,12 @@ def test_arduino_board_discovery(monkeypatch) -> None:
         return ports
 
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # USB discovered board
-        ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # USB invalid board
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),  # Manually added board
-        ("*IDN?", "Student Robotics:OTHER:TESTABC:4.3"),  # Manual invalid board
+        ("v", "SRduino:2.0"),  # USB discovered board
+        ("v", "Arduino:4.3"),  # USB invalid board
+        ("v", "SRcustom:3.0"),  # Manually added board
+        ("v", "OTHER:4.3"),  # Manual invalid board
+        ("v", "SRduino:2.0"),  # identity check
+        ("v", "SRcustom:3.0"),  # identity check
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
     monkeypatch.setattr('sr.robot.arduino.comports', mock_comports)
@@ -235,21 +216,49 @@ def test_arduino_board_discovery(monkeypatch) -> None:
     # Manually added boards use the serial port as the asset tag
     assert {'TEST123', 'test://2'} == set(arduino_boards.keys())
 
+    identity = arduino_boards['TEST123'].identify()
+    assert identity.board_type == "SRduino"
+    assert identity.sw_version == "2.0"
 
-def test_arduino_board_invalid_identity(monkeypatch) -> None:
+    identity = arduino_boards['test://2'].identify()
+    assert identity.board_type == "SRcustom"
+    assert identity.sw_version == "3.0"
+
+
+def test_arduino_board_new_sourcebots_identity(monkeypatch, caplog) -> None:
     """
-    Test that we raise an error if the arduino board returns an different board type.
+    Test that we raise an error if the arduino board returns an old style identity.
     """
     serial_wrapper = MockSerialWrapper([
-        ("*IDN?", "Student Robotics:TestBoard:TEST123:4.3"),  # Called by Arduino.__init__
+        ("v", "NACK:Invalid command"),  # Called by Arduino.__init__
     ])
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
 
-    with pytest.raises(
-        IncorrectBoardError,
-        match=re.escape("Board returned type 'TestBoard', expected 'Arduino'"),
-    ):
-        Arduino('test://')
+    with caplog.at_level(logging.WARNING):
+        arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+
+    assert arduino is None
+    assert caplog.records[0].message == (
+        "Board returned type 'NACK', expected 'SR*'. Ignoring this device"
+    )
+
+
+def test_arduino_board_old_sourcebots_identity(monkeypatch, caplog) -> None:
+    """
+    Test that we raise an error if the arduino board returns an old style identity.
+    """
+    serial_wrapper = MockSerialWrapper([
+        ("v", "Error, unknown command: v"),  # Called by Arduino.__init__
+    ])
+    monkeypatch.setattr('sr.robot.arduino.SerialWrapper', serial_wrapper)
+
+    with caplog.at_level(logging.WARNING):
+        arduino = Arduino._get_valid_board('test://', BoardIdentity(board_type="manual"))
+
+    assert arduino is None
+    assert caplog.records[0].message == (
+        "Board returned type 'Error, unknown command', expected 'SR*'. Ignoring this device"
+    )
 
 
 @pytest.mark.hardware

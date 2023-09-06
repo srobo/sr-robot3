@@ -1,5 +1,6 @@
 """Test that the module works."""
 import logging
+import signal
 import socket
 
 import pytest
@@ -7,7 +8,6 @@ import signal
 
 from sr.robot import Robot
 from sr.robot.exceptions import MetadataNotReadyError
-from sr.robot.metadata import METADATA_ENV_VAR
 from sr.robot.utils import BoardIdentity, obtain_lock
 
 from .conftest import MockAtExit, MockSerialWrapper
@@ -22,8 +22,8 @@ def test_robot(monkeypatch, caplog) -> None:
         ("OUT:1:SET:1", "ACK"),
         ("OUT:2:SET:1", "ACK"),
         ("OUT:3:SET:1", "ACK"),
-        ("OUT:4:SET:1", "ACK"),
         ("OUT:5:SET:1", "ACK"),
+        ("OUT:6:SET:1", "ACK"),
         ("*IDN?", "Student Robotics:PBv4B:POW123:4.4.1"),
         ("BTN:START:GET?", "0:1"),
         ("NOTE:1760:100", "ACK"),  # Start up sound
@@ -41,8 +41,8 @@ def test_robot(monkeypatch, caplog) -> None:
         ("*IDN?", "Student Robotics:SBv4B:TEST123:4.3"),
     ]))
     monkeypatch.setattr('sr.robot.arduino.SerialWrapper', MockSerialWrapper([
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
-        ("*IDN?", "Student Robotics:Arduino:X:2.0"),
+        ("v", "SRduino:2.0"),
+        ("v", "SRduino:2.0"),
     ]))
 
     # monkey patch atexit to avoid running cleanup code
@@ -59,9 +59,6 @@ def test_robot(monkeypatch, caplog) -> None:
     # Forget the camera
     monkeypatch.setattr('sr.robot.robot._setup_cameras', lambda *_: {})
 
-    # Avoid searching filesystem for metadata
-    monkeypatch.delenv(METADATA_ENV_VAR, raising=False)
-
     manual_boards = {
         'PBv4B': ['test://'],
         'SBv4B': ['test://'],
@@ -70,7 +67,9 @@ def test_robot(monkeypatch, caplog) -> None:
     }
     # check logging
     caplog.clear()
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.CRITICAL, logger='sr.robot.mqtt')
+    caplog.set_level(logging.CRITICAL, logger='sr.robot.astoria')
+    caplog.set_level(logging.INFO, logger='sr.robot.robot')
 
     # Test that we can obtain a lock before creating a robot object
     lock = obtain_lock()
@@ -98,7 +97,7 @@ def test_robot(monkeypatch, caplog) -> None:
         "Student Robotics", "SBv4B", "TEST123", "4.3")
 
     assert r.arduino._identity == BoardIdentity(
-        "Student Robotics", "Arduino", "test://", "2.0")
+        "Student Robotics", "SRduino", "test://", "2.0")
 
     # Check that a RuntimeError is raised if we have 0 instances of a board
     with pytest.raises(RuntimeError, match="No boards of this type found"):

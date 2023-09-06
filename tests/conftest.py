@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 
 import pytest
 
@@ -57,7 +58,7 @@ class MockSerialWrapper:
         self._baudrate = baud
         return self
 
-    def query(self, request: str) -> str:
+    def query(self, request: Optional[str], endl: str = '\n') -> str:
         """
         Mocks sending a command and returning the response.
 
@@ -73,9 +74,9 @@ class MockSerialWrapper:
         self.request_index += 1
         return response
 
-    def write(self, request: str) -> None:
+    def write(self, request: str, endl: str = '\n') -> None:
         """Send a command without waiting for a response."""
-        _ = self.query(request)
+        _ = self.query(request, endl)
 
     def set_identity(self, identity: BoardIdentity) -> None:
         """Set the identity of the board."""

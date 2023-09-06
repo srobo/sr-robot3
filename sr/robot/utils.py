@@ -6,8 +6,9 @@ import signal
 import socket
 from abc import ABC, abstractmethod
 from types import FrameType
-from typing import Any, Mapping, NamedTuple, TypeVar
+from typing import Any, Mapping, NamedTuple, Optional, TypeVar
 
+from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 
 T = TypeVar('T')
@@ -206,7 +207,6 @@ def get_USB_identity(port: ListPortInfo) -> BoardIdentity:
 def ensure_atexit_on_term() -> None:
     """
     Ensure `atexit` triggers on `SIGTERM`.
-
     > The functions registered via [`atexit`] are not called when the program is
       killed by a signal not handled by Python
     """
@@ -216,10 +216,9 @@ def ensure_atexit_on_term() -> None:
         # this is sufficient for `atexit` to trigger, so do nothing.
         return
 
-    def handle_signal(handled_signum: int, frame: FrameType | None) -> None:
+    def handle_signal(handled_signum: int, frame: Optional[FrameType]) -> None:
         """
         Handle the given signal by outputting some text and terminating the process.
-
         This will trigger `atexit`.
         """
         logger.info(signal.strsignal(handled_signum))
@@ -227,3 +226,22 @@ def ensure_atexit_on_term() -> None:
 
     # Add the null-ish signal handler
     signal.signal(signal.SIGTERM, handle_signal)
+
+
+def list_ports() -> None:
+    """
+    Print a list of all connected USB serial ports.
+
+    Output is in the format:
+    ```
+    VID:PID - Manufacturer - Product - Serial Number
+    ```
+    """
+    print("VID:PID - Manufacturer - Product - Serial Number")
+    for serial_port in comports():
+        if serial_port.vid and serial_port.pid:
+            # Only print USB serial ports
+            print(
+                f"{serial_port.vid:04X}:{serial_port.pid:04X} - {serial_port.manufacturer} "
+                f"- {serial_port.product} - {serial_port.serial_number}"
+            )

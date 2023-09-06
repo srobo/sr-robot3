@@ -5,11 +5,11 @@ import atexit
 import logging
 from enum import IntEnum
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
-from .exceptions import BoardDisconnectionError, IncorrectBoardError
+from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
 from .utils import (
@@ -72,7 +72,7 @@ class MotorBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
+        initial_identity: Optional[BoardIdentity] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -92,8 +92,41 @@ class MotorBoard(Board):
         atexit.register(self._cleanup)
 
     @classmethod
+    def _get_valid_board(
+        cls,
+        serial_port: str,
+        initial_identity: Optional[BoardIdentity] = None,
+    ) -> Optional[MotorBoard]:
+        """
+        Attempt to connect to a motor board and returning None if it fails identification.
+
+        :param serial_port: The serial port to connect to.
+        :param initial_identity: The identity of the board, as reported by the USB descriptor.
+
+        :return: A MotorBoard object, or None if the board could not be identified.
+        """
+        try:
+            board = cls(serial_port, initial_identity)
+        except IncorrectBoardError as err:
+            logger.warning(
+                f"Board returned type {err.returned_type!r}, "
+                f"expected {err.expected_type!r}. Ignoring this device")
+            return None
+        except Exception:
+            if initial_identity is not None and initial_identity.board_type == 'manual':
+                logger.warning(
+                    f"Manually specified motor board at port {serial_port!r}, "
+                    "could not be identified. Ignoring this device")
+            else:
+                logger.warning(
+                    f"Found motor board-like serial port at {serial_port!r}, "
+                    "but it could not be identified. Ignoring this device")
+            return None
+        return board
+
+    @classmethod
     def _get_supported_boards(
-        cls, manual_boards: list[str] | None = None,
+        cls, manual_boards: Optional[list[str]] = None,
     ) -> MappingProxyType[str, MotorBoard]:
         """
         Find all connected motor boards.
@@ -113,18 +146,9 @@ class MotorBoard(Board):
                 # Create board identity from USB port info
                 initial_identity = get_USB_identity(port)
 
-                try:
-                    board = MotorBoard(port.device, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Found motor board-like serial port at {port.device!r}, "
-                        "but it could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(port.device, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
 
         # Add any manually specified boards
@@ -136,18 +160,9 @@ class MotorBoard(Board):
                     asset_tag=manual_port,
                 )
 
-                try:
-                    board = MotorBoard(manual_port, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Manually specified motor board at port {manual_port!r}, "
-                        "could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(manual_port, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
         return MappingProxyType(boards)
 
@@ -242,7 +257,7 @@ class Motor:
         return map_to_float(value, -1000, 1000, -1.0, 1.0, precision=3)
 
     @power.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def power(self, value: float) -> None:
         """
         Set the power of the motor.

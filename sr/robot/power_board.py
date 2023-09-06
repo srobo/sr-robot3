@@ -4,12 +4,13 @@ from __future__ import annotations
 import atexit
 import logging
 from enum import IntEnum
+from time import sleep
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
-from .exceptions import BoardDisconnectionError, IncorrectBoardError
+from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
 from .utils import Board, BoardIdentity, float_bounds_check, get_USB_identity
@@ -61,7 +62,7 @@ class PowerStatus(NamedTuple):
 
 
 # This output is always on, and cannot be controlled via the API.
-BRAIN_OUTPUT = PowerOutputPosition.FIVE_VOLT
+BRAIN_OUTPUT = PowerOutputPosition.L2
 
 
 class PowerBoard(Board):
@@ -89,7 +90,7 @@ class PowerBoard(Board):
     def __init__(
         self,
         serial_port: str,
-        initial_identity: BoardIdentity | None = None,
+        initial_identity: Optional[BoardIdentity] = None,
     ) -> None:
         if initial_identity is None:
             initial_identity = BoardIdentity()
@@ -109,8 +110,42 @@ class PowerBoard(Board):
         atexit.register(self._cleanup)
 
     @classmethod
+    def _get_valid_board(
+        cls,
+        serial_port: str,
+        initial_identity: Optional[BoardIdentity] = None,
+    ) -> Optional[PowerBoard]:
+        """
+        Attempt to connect to a power board and returning None if it fails identification.
+
+        :param serial_port: The serial port to connect to.
+        :param initial_identity: The identity of the board, as reported by the USB descriptor.
+
+        :return: A PowerBoard object, or None if the board could not be identified.
+        """
+
+        try:
+            board = cls(serial_port, initial_identity)
+        except IncorrectBoardError as err:
+            logger.warning(
+                f"Board returned type {err.returned_type!r}, "
+                f"expected {err.expected_type!r}. Ignoring this device")
+            return None
+        except Exception:
+            if initial_identity is not None and initial_identity.board_type == 'manual':
+                logger.warning(
+                    f"Manually specified power board at port {serial_port!r}, "
+                    "could not be identified. Ignoring this device")
+            else:
+                logger.warning(
+                    f"Found power board-like serial port at {serial_port!r}, "
+                    "but it could not be identified. Ignoring this device")
+            return None
+        return board
+
+    @classmethod
     def _get_supported_boards(
-        cls, manual_boards: list[str] | None = None,
+        cls, manual_boards: Optional[list[str]] = None,
     ) -> MappingProxyType[str, PowerBoard]:
         """
         Find all connected power boards.
@@ -128,18 +163,9 @@ class PowerBoard(Board):
                 # Create board identity from USB port info
                 initial_identity = get_USB_identity(port)
 
-                try:
-                    board = PowerBoard(port.device, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Found power board-like serial port at {port.device!r}, "
-                        "but it could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(port.device, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
 
         # Add any manually specified boards
@@ -151,18 +177,9 @@ class PowerBoard(Board):
                     asset_tag=manual_port,
                 )
 
-                try:
-                    board = PowerBoard(manual_port, initial_identity)
-                except BoardDisconnectionError:
-                    logger.warning(
-                        f"Manually specified power board at port {manual_port!r}, "
-                        "could not be identified. Ignoring this device")
+                if (board := cls._get_valid_board(manual_port, initial_identity)) is None:
                     continue
-                except IncorrectBoardError as err:
-                    logger.warning(
-                        f"Board returned type {err.returned_type!r}, "
-                        f"expected {err.expected_type!r}. Ignoring this device")
-                    continue
+
                 boards[board._identity.asset_tag] = board
         return MappingProxyType(boards)
 
@@ -328,7 +345,7 @@ class Output:
         return response == '1'
 
     @is_enabled.setter
-    @log_to_debug
+    @log_to_debug(setter=True)
     def is_enabled(self, value: bool) -> None:
         """
         Set whether the output is enabled.
@@ -468,7 +485,7 @@ class Piezo:
         self._serial = serial
 
     @log_to_debug
-    def buzz(self, frequency: float, duration: float) -> None:
+    def buzz(self, frequency: float, duration: float, *, blocking: bool = False) -> None:
         """
         Produce a tone on the piezo.
 
@@ -477,15 +494,19 @@ class Piezo:
 
         :param frequency: The frequency of the tone, in Hz.
         :param duration: The duration of the tone, in seconds.
+        :param blocking: Whether to block until the tone has finished playing,
         """
         frequency_int = int(float_bounds_check(
-            frequency, 8, 10_000, "Frequency is a float in Hz between 0 and 10000"))
+            frequency, 8, 10_000, "Frequency must be between 8 and 10000Hz"))
         duration_ms = int(float_bounds_check(
             duration * 1000, 0, 2**31 - 1,
             f"Duration is a float in seconds between 0 and {(2**31-1)/1000:,.0f}"))
 
         cmd = f'NOTE:{frequency_int}:{duration_ms}'
         self._serial.write(cmd)
+
+        if blocking:
+            sleep(duration)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"

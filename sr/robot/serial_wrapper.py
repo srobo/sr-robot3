@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from functools import wraps
-from typing import Callable, TypeVar
+from typing import Callable, Optional, TypeVar, Union
 
 import serial
 
@@ -32,7 +32,7 @@ E = TypeVar("E", bound=BaseException)
 
 
 def retry(
-    times: int, exceptions: type[E] | tuple[type[E], ...]
+    times: int, exceptions: Union[type[E], tuple[type[E], ...]]
 ) -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
     """
     Decorator to retry a function a number of times on a given exception.
@@ -115,8 +115,8 @@ class SerialWrapper:
         """
         self._disconnect()
 
-    @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError))
-    def query(self, data: str) -> str:
+    @retry(times=3, exceptions=(BoardDisconnectionError, UnicodeDecodeError, OSError))
+    def query(self, data: Optional[str], *, endl: str = '\n') -> str:
         """
         Send a command to the board and return the response.
 
@@ -139,9 +139,10 @@ class SerialWrapper:
                     ))
 
             try:
-                logger.log(TRACE, f'Serial write - {data!r}')
-                cmd = data + '\n'
-                self.serial.write(cmd.encode())
+                if data is not None:
+                    logger.log(TRACE, f'Serial write - {data!r}')
+                    cmd = data + endl
+                    self.serial.write(cmd.encode())
 
                 response = self.serial.readline()
                 try:
@@ -179,7 +180,7 @@ class SerialWrapper:
 
             return response_str
 
-    def write(self, data: str) -> None:
+    def write(self, data: str, *, endl: str = '\n') -> None:
         """
         Send a command to the board that does not require a response.
 
@@ -187,7 +188,7 @@ class SerialWrapper:
         :raises RuntimeError: If the board returns a NACK response,
             the firmware's error message is raised.
         """
-        _ = self.query(data)
+        _ = self.query(data, endl=endl)
 
     def _connect(self) -> bool:
         """
@@ -212,7 +213,7 @@ class SerialWrapper:
             return False
 
         logger.info(
-            f'Connected to board {self.identity.board_type}:{self.identity.asset_tag}'
+            f'Connected to board {self.identity.board_type}: {self.identity.asset_tag}'
         )
         return True
 
