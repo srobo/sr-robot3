@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import logging
+from time import sleep
 from types import MappingProxyType
 from typing import NamedTuple, Optional
 
-from serial import Serial
+from serial import Serial, serial_for_url
 from serial.tools.list_ports import comports
 
 from .logging import log_to_debug
-from .serial_wrapper import SerialWrapper
 from .utils import Board, BoardIdentity, get_USB_identity
 
 logger = logging.getLogger(__name__)
@@ -58,12 +58,14 @@ class RawSerial(Board):
         # so we need to get the identity from the USB descriptor
         self._identity = identity
 
-        self._serial = SerialWrapper(
+        # Open the serial port
+        self._serial = serial_for_url(
             serial_port,
-            baud=baudrate,
-            identity=identity,
-            delay_after_connect=2,  # Wait for boards to reset after connecting
+            baudrate=baudrate,
+            timeout=0.5,  # 500ms timeout
         )
+
+        sleep(2)  # Wait for boards to reset after connecting
 
     @classmethod
     def _get_supported_boards(
@@ -123,35 +125,36 @@ class RawSerial(Board):
 
         :return: The raw serial port.
         """
-        return self._serial.serial
+        return self._serial
 
     @log_to_debug
-    def query(self, command: str) -> str:
+    def write(self, data: bytes) -> None:
         """
-        Send a command to the port and return the response.
+        Send bytes to the port.
 
-        :param command: The command to send.
-        :return: The response from the board.
+        :param data: The bytes to send.
         """
-        return self._serial.query(command)
-
-    @log_to_debug
-    def write(self, command: str) -> None:
-        """
-        Send a command to the port.
-
-        :param command: The command to send.
-        """
-        self._serial.write(command)
+        self._serial.write(data)
 
     @log_to_debug
-    def read(self) -> str:
+    def read(self, size: int) -> bytes:
         """
         Read a line from the port.
 
+        :param size: The number of bytes to read.
         :return: The line read from the port.
         """
-        return self._serial.query(None)
+        return self._serial.read(size)
+
+    @log_to_debug
+    def read_until(self, terminator: bytes = b'\n') -> bytes:
+        """
+        Read until a terminator is reached.
+
+        :param terminator: The terminator character to stop reading at.
+        :return: The data read from the port.
+        """
+        return self._serial.read_until(terminator)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
