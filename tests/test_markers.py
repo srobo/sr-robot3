@@ -7,7 +7,7 @@ from typing import NamedTuple
 import pytest
 import numpy as np
 
-from sr.robot.marker import Marker
+from sr.robot3.marker import Marker
 
 
 class MarkerValues(NamedTuple):

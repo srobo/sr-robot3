@@ -8,7 +8,7 @@ import sys
 import pytest
 from unittest.mock import Mock
 
-from sr.robot.timeout import kill_after_delay
+from sr.robot3.timeout import kill_after_delay
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on Windows")
@@ -40,7 +40,7 @@ def test_kill_after_delay_e2e() -> None:
     child = subprocess.Popen([
         sys.executable,
         "-c",
-        'from sr.robot.timeout import kill_after_delay; '
+        'from sr.robot3.timeout import kill_after_delay; '
         'import time; kill_after_delay(2); time.sleep(10)',
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 

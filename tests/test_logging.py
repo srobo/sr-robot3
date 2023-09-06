@@ -1,7 +1,7 @@
 """Test log_to_debug functions."""
 import logging
 
-from sr.robot.logging import log_to_debug
+from sr.robot3.logging import log_to_debug
 
 
 def test_log_to_debug(caplog):

@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from sr.robot.raw_serial import RawSerial, RawSerialDevice
-from sr.robot.utils import BoardIdentity
+from sr.robot3.raw_serial import RawSerial, RawSerialDevice
+from sr.robot3.utils import BoardIdentity
 
 
 class MockRawSerial(NamedTuple):
@@ -23,7 +23,7 @@ class MockRawSerial(NamedTuple):
 
 @pytest.fixture
 def raw_serial() -> None:
-    with patch('sr.robot.raw_serial.serial_for_url') as MockSerial:
+    with patch('sr.robot3.raw_serial.serial_for_url') as MockSerial:
         MockSerial.return_value = MagicMock()
         raw_serial_device = RawSerial('test://', identity=BoardIdentity(asset_tag='TEST123'))
         assert MockSerial.call_count == 1
@@ -89,8 +89,8 @@ def test_serial_device_discovery(monkeypatch) -> None:
         ]
         return ports
 
-    monkeypatch.setattr('sr.robot.raw_serial.comports', mock_comports)
-    with patch('sr.robot.raw_serial.serial_for_url') as MockSerial:
+    monkeypatch.setattr('sr.robot3.raw_serial.comports', mock_comports)
+    with patch('sr.robot3.raw_serial.serial_for_url') as MockSerial:
         MockSerial.return_value = MagicMock()
         serial_devices = RawSerial._get_supported_boards([
             RawSerialDevice(

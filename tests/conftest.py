@@ -3,7 +3,7 @@ from typing import Optional
 
 import pytest
 
-from sr.robot.utils import BoardIdentity
+from sr.robot3.utils import BoardIdentity
 
 
 def pytest_addoption(parser):
@@ -27,12 +27,12 @@ def pytest_runtest_setup(item):
 
 class MockSerialWrapper:
     """
-    A class that mocks the sr.robot.serial_wrapper.SerialWrapper class.
+    A class that mocks the sr.robot3.serial_wrapper.SerialWrapper class.
 
     Takes a list of 2-tuples of request and response strings.
     Asserts that each request is sent in order and returns the matching response.
 
-    Implements the same interface as sr.robot.serial_wrapper.SerialWrapper.
+    Implements the same interface as sr.robot3.serial_wrapper.SerialWrapper.
     """
 
     def __init__(self, responses: list[tuple[str, str]]) -> None:
