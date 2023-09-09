@@ -205,6 +205,7 @@ class SerialWrapper:
             # Wait for the board to be ready to receive data
             # Certain boards will reset when the serial port is opened
             time.sleep(self.delay_after_connect)
+            self.serial.reset_input_buffer()
         except serial.SerialException:
             logger.error((
                 'Failed to connect to board '
