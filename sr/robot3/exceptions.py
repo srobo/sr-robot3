@@ -20,8 +20,7 @@ class MetadataNotReadyError(RuntimeError):
 
     def __str__(self) -> str:
         return (
-            "Metadata (e.g. zone or is_competition) can only be used after"
-            " wait_start has been called"
+            "Metadata (zone, arena and mode) can only be used after wait_start has been called"
         )
 
 

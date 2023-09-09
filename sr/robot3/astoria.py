@@ -6,6 +6,7 @@ from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from threading import Event, Lock
+from time import sleep
 from typing import Any, ClassVar, NewType, Optional, Tuple
 
 from paho.mqtt.client import Client as MQTT
@@ -204,6 +205,8 @@ class AstoriaInterface:
         self._mqtt.subscribe("broadcast/start_button", self._process_remote_start)
         self._mqtt.subscribe("astmetad", self._process_metadata_update)
         self._mqtt.subscribe("astprocd", self._handle_astprocd_message)
+        # Wait a short time for the mount path to be updated
+        sleep(0.05)
 
     def _process_remote_start(
         self, client: MQTT, userdata: Any, msg: MQTTMessage,
