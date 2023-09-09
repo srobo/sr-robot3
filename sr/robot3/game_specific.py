@@ -5,6 +5,7 @@ from typing import Iterable
 
 # Marker sizes are in mm
 MARKER_SIZES: dict[Iterable[int], int] = {
-    range(100): 150,  # arena boundaries
-    range(100, 200): 80,  # Everything else is a token
+    range(50): 150,  # 0-49 = 150mm
+    range(50, 100): 200,  # 50-99 = 200mm
+    range(100, 200): 80,  # 100-199 = 80mm
 }
