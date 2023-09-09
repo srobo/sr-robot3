@@ -298,22 +298,6 @@ class Robot:
         """
         return time.time()
 
-    def print_wifi_details(self) -> None:
-        """
-        Prints the current WiFi details stored in robot-settings.toml.
-
-        :raises MetadataNotReadyError: If the start button has not been pressed yet
-        """
-        if self._metadata is None:
-            raise MetadataNotReadyError()
-
-        if not self._metadata.wifi_enabled:
-            logger.warning("Could not print WiFi details - WiFi is not enabled")
-            return
-        logger.info("WiFi credentials:")
-        logger.info(f"SSID: {self._metadata.wifi_ssid}")
-        logger.info(f"Password: {self._metadata.wifi_psk}")
-
     @property
     @log_to_debug
     def arena(self) -> str:
