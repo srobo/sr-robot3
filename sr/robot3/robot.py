@@ -42,7 +42,7 @@ class Robot:
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
-        '_arduinos', '_cameras', '_mqtt', '_astoria', '_code_path', '_kch', '_raw_ports',
+        '_arduinos', '_cameras', '_mqtt', '_astoria', '_kch', '_raw_ports',
     )
 
     def __init__(
@@ -64,7 +64,6 @@ class Robot:
         logger.info(f"sr.robot3 version {__version__}")
 
         self._mqtt, self._astoria = init_astoria_mqtt()
-        self._code_path: Optional[Path] = None
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -365,10 +364,7 @@ class Robot:
         :returns: path to the mountpoint of the USB code drive.
         :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
-        if self._code_path is None:
-            raise MetadataNotReadyError()
-        else:
-            return self._code_path
+        return self._astoria.fetch_mount_path()
 
     @property
     def is_simulated(self) -> bool:
@@ -408,7 +404,6 @@ class Robot:
 
         # Load the latest metadata that we have received over MQTT
         self._metadata = self._astoria.fetch_current_metadata()
-        self._code_path = self._astoria.fetch_mount_path()
 
         if self._metadata.game_timeout is not None:
             timeout.kill_after_delay(self._metadata.game_timeout)
