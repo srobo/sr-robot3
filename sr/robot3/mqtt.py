@@ -138,7 +138,7 @@ class MQTTClient:
         payload: Union[bytes, str],
         retain: bool = False,
         *,
-        abs_topic: bool = False,
+        abs_topic: bool = True,
     ) -> None:
         """Wrap a payload up to be decodable as JSON."""
         if isinstance(payload, bytes):
