@@ -264,7 +264,7 @@ class Pin:
         self._index = index
         self._supports_analog = supports_analog
         self._disabled = disabled
-        self._mode = GPIOPinMode.INPUT_PULLUP
+        self._mode = GPIOPinMode.INPUT
 
     @property
     @log_to_debug
