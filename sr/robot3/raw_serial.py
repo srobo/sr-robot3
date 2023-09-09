@@ -70,18 +70,22 @@ class RawSerial(Board):
     @classmethod
     def _get_supported_boards(
         cls,
-        serial_devices: list[RawSerialDevice],
+        serial_devices: list[tuple[str, int]],
     ) -> MappingProxyType[str, RawSerial]:
         """
         Discover connected serial devices filtered by serial number.
 
-        :param serial_ports: A list of serial ports to check,
-            these are matched by Vserial number.
+        :param serial_ports: A list of serial ports to check (serial_number, baudrate),
+            these are matched by serial number.
         :return: A mapping of board serial numbers to Arduinos
         """
         boards = {}
+        serial_device_objs = [
+            RawSerialDevice(serial_number, baudrate)
+            for serial_number, baudrate in serial_devices
+        ]
         device_lookup = {
-            device.serial_number: device for device in serial_devices
+            device.serial_number: device for device in serial_device_objs
         }
 
         serial_ports = comports()

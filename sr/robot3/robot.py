@@ -18,7 +18,7 @@ from .kch import KCH
 from .logging import log_to_debug, setup_logging
 from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
-from .raw_serial import RawSerial, RawSerialDevice
+from .raw_serial import RawSerial
 from .servo_board import ServoBoard
 from .utils import ensure_atexit_on_term, obtain_lock, singular
 
@@ -38,7 +38,7 @@ class Robot:
     :param trace_logging: Enable trace level logging to the console, defaults to False
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
-    :param raw_ports: A list of RawSerialDevice objects to try connecting to.
+    :param raw_ports: A list of serial number, baudrate tuples to try connecting to.
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
@@ -53,7 +53,7 @@ class Robot:
         trace_logging: bool = False,
         ignored_arduinos: Optional[list[str]] = None,
         manual_boards: Optional[dict[str, list[str]]] = None,
-        raw_ports: Optional[list[RawSerialDevice]] = None,
+        raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
         self._lock = obtain_lock()
         self._metadata: Optional[Metadata] = None
@@ -97,7 +97,7 @@ class Robot:
         self,
         manual_boards: Optional[dict[str, list[str]]] = None,
         ignored_arduinos: Optional[list[str]] = None,
-        raw_ports: Optional[list[RawSerialDevice]] = None,
+        raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
         """
         Locate the motor boards, servo boards, and Arduinos.
