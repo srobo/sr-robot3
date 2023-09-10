@@ -393,13 +393,6 @@ class Pin:
         )
 
 
-# PIN:<n>:MODE:GET?
-# PIN:<n>:MODE:SET:<value>
-# PIN:<n>:DIGITAL:GET?
-# PIN:<n>:DIGITAL:SET:<1/0>
-# PIN:<n>:ANALOG:GET?
-# ULTRASOUND:<pulse>:<echo>:MEASURE?
-
 if __name__ == '__main__':  # pragma: no cover
     arduinos = Arduino._get_supported_boards()
     for serial_num, board in arduinos.items():
