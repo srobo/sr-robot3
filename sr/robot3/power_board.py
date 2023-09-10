@@ -154,6 +154,7 @@ class PowerBoard(Board):
 
         :param manual_boards: A list of manually specified serial ports to also attempt
             to connect to, defaults to None
+        :return: A mapping of serial numbers to power boards.
         """
         boards = {}
         serial_ports = comports()

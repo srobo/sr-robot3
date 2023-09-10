@@ -19,7 +19,7 @@ def timeout_handler(signal_type: int, stack_frame: Optional[FrameType]) -> None:
 
     NOTE: This function is not called on Windows.
 
-    :param signal_type: The sginal that triggered this handler
+    :param signal_type: The signal that triggered this handler
     :param stack_frame: The stack frame at the time of the signal
     """
     logger.info("Timeout expired: Game Over!")

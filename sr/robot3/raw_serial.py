@@ -81,7 +81,7 @@ class RawSerial(Board):
         """
         Discover connected serial devices filtered by serial number.
 
-        :param serial_ports: A list of serial ports to check (serial_number, baudrate),
+        :param serial_devices: A list of serial ports to check (serial_number, baudrate),
             these are matched by serial number.
         :return: A mapping of board serial numbers to Arduinos
         """
@@ -171,6 +171,9 @@ class RawSerial(Board):
 
     @contextmanager
     def _handle_serial_reconnect(self) -> Generator[None, None, None]:
+        """
+        A context manager to handle reconnecting the serial ports on faults.
+        """
         if not self._serial.is_open:
             if not self._reconnect():
                 # If the serial port cannot be opened raise an error

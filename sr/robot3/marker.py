@@ -90,6 +90,13 @@ PixelCorners = Tuple[PixelCoordinates, PixelCoordinates, PixelCoordinates, Pixel
 class Marker(NamedTuple):
     """
     Wrapper of a marker detection with axis and rotation calculated.
+
+    :param id: The ID of the detected marker
+    :param size: The physical size of the marker in millimeters
+    :param pixel_corners: A tuple of the PixelCoordinates of the marker's corners in the frame
+    :param pixel_centre: The PixelCoordinates of the marker's centre in the frame
+    :param position: Position information of the marker relative to the camera
+    :param orientation: Orientation information of the marker
     """
 
     id: int
@@ -102,6 +109,7 @@ class Marker(NamedTuple):
 
     @classmethod
     def from_april_vision_marker(cls, marker: AprilMarker) -> 'Marker':
+        """Generate a marker object using the data from april_vision's Marker object."""
         if marker.rvec is None or marker.tvec is None:
             raise ValueError("Marker lacks pose information")
 

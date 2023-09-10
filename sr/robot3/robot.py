@@ -36,6 +36,7 @@ class Robot:
     :param wait_for_start: Wait in the constructor until the start button is pressed,
         defaults to True
     :param trace_logging: Enable trace level logging to the console, defaults to False
+    :param ignored_arduinos: A list of Arduino serial numbers to avoid connecting to
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
     :param raw_ports: A list of serial number, baudrate tuples to try connecting to.
@@ -108,6 +109,8 @@ class Robot:
 
         :param manual_boards:  A dictionary of board types to a list of additional
             serial port paths that should be checked for boards of that type, defaults to None
+        :param ignored_arduinos: A list of Arduino serial numbers to avoid connecting to
+        :param raw_ports: A list of serial number, baudrate tuples to try connecting to
         """
         self._raw_ports: MappingProxyType[str, RawSerial] = MappingProxyType({})
         if manual_boards is None:
@@ -346,7 +349,6 @@ class Robot:
         The path of the USB code drive.
 
         :returns: path to the mountpoint of the USB code drive.
-        :raises MetadataNotReadyError: If the start button has not been pressed yet
         """
         return self._astoria.fetch_mount_path()
 

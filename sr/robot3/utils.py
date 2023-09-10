@@ -123,7 +123,7 @@ def singular(container: Mapping[str, T]) -> T:
 
     :param container: A mapping of connected boards of a type
     :raises RuntimeError: If there is not exactly one of this type of board connected
-    :return: _description_
+    :return: The connected board of the type
     """
     length = len(container)
 
