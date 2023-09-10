@@ -127,6 +127,7 @@ class MotorBoard(Board):
     @classmethod
     def _get_supported_boards(
         cls, manual_boards: Optional[list[str]] = None,
+        ignored_serials: Optional[list[str]] = None,
     ) -> MappingProxyType[str, MotorBoard]:
         """
         Find all connected motor boards.
@@ -135,9 +136,12 @@ class MotorBoard(Board):
 
         :param manual_boards: A list of manually specified serial ports to also attempt
             to connect to, defaults to None
+        :param ignored_serials: A list of serial numbers to ignore in board discovery
         :return: A mapping of serial numbers to motor boards.
         """
         boards = {}
+        if ignored_serials is None:
+            ignored_serials = []
         serial_ports = comports()
         for port in serial_ports:
             # Filter to USB vendor and product ID of the FTDI FT232R
@@ -145,6 +149,8 @@ class MotorBoard(Board):
             if port.vid == 0x0403 and port.pid == 0x6001:
                 # Create board identity from USB port info
                 initial_identity = get_USB_identity(port)
+                if initial_identity.asset_tag in ignored_serials:
+                    continue
 
                 if (board := cls._get_valid_board(port.device, initial_identity)) is None:
                     continue

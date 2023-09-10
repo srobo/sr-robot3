@@ -149,6 +149,7 @@ class Arduino(Board):
 
         :param manual_boards: A list of manually specified board port strings,
             defaults to None
+        :param ignored_serials: A list of serial numbers to ignore in board discovery
         :return: A mapping of board serial numbers to Arduinos
         """
         boards = {}

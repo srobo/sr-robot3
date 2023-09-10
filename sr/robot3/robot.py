@@ -36,6 +36,7 @@ class Robot:
     :param wait_for_start: Wait in the constructor until the start button is pressed,
         defaults to True
     :param trace_logging: Enable trace level logging to the console, defaults to False
+    :param ignored_serials: A list of serial numbers to ignore in board discovery
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
     :param raw_ports: A list of serial number, baudrate tuples to try connecting to.
@@ -51,7 +52,7 @@ class Robot:
         debug: bool = False,
         wait_for_start: bool = True,
         trace_logging: bool = False,
-        ignored_arduinos: Optional[list[str]] = None,
+        ignored_serials: Optional[list[str]] = None,
         manual_boards: Optional[dict[str, list[str]]] = None,
         raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
@@ -66,10 +67,12 @@ class Robot:
         self._mqtt, self._astoria = init_astoria_mqtt()
 
         if manual_boards:
-            self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
+            self._init_power_board(
+                manual_boards.get(PowerBoard.get_board_type(), []),
+                ignored_serials=ignored_serials)
         else:
-            self._init_power_board()
-        self._init_aux_boards(manual_boards, ignored_arduinos, raw_ports)
+            self._init_power_board(ignored_serials=ignored_serials)
+        self._init_aux_boards(manual_boards, ignored_serials, raw_ports)
         self._init_camera()
         self._log_connected_boards()
 
@@ -79,15 +82,20 @@ class Robot:
         else:
             logger.debug("Not waiting for start button.")
 
-    def _init_power_board(self, manual_boards: Optional[list[str]] = None) -> None:
+    def _init_power_board(
+        self,
+        manual_boards: Optional[list[str]] = None,
+        ignored_serials: Optional[list[str]] = None,
+    ) -> None:
         """
         Locate the PowerBoard and enable all the outputs to power the other boards.
 
         :param manual_boards: Serial port paths to also check for power boards,
             defaults to None
+        :param ignored_serials: A list of serial numbers to ignore in board discovery
         :raises RuntimeError: If exactly one PowerBoard is not found
         """
-        power_boards = PowerBoard._get_supported_boards(manual_boards)
+        power_boards = PowerBoard._get_supported_boards(manual_boards, ignored_serials)
         self._power_board = singular(power_boards)
 
         # Enable all the outputs, so that we can find other boards.
@@ -96,7 +104,7 @@ class Robot:
     def _init_aux_boards(
         self,
         manual_boards: Optional[dict[str, list[str]]] = None,
-        ignored_arduinos: Optional[list[str]] = None,
+        ignored_serials: Optional[list[str]] = None,
         raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
         """
@@ -108,6 +116,8 @@ class Robot:
 
         :param manual_boards:  A dictionary of board types to a list of additional
             serial port paths that should be checked for boards of that type, defaults to None
+        :param ignored_serials: A list of serial numbers to ignore in board discovery
+        :param raw_ports: A list of serial number, baudrate tuples to try connecting to
         """
         self._raw_ports: MappingProxyType[str, RawSerial] = MappingProxyType({})
         if manual_boards is None:
@@ -118,9 +128,11 @@ class Robot:
         manual_arduinos = manual_boards.get(Arduino.get_board_type(), [])
 
         self._kch = KCH()
-        self._motor_boards = MotorBoard._get_supported_boards(manual_motorboards)
-        self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
-        self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
+        self._motor_boards = MotorBoard._get_supported_boards(
+            manual_motorboards, ignored_serials)
+        self._servo_boards = ServoBoard._get_supported_boards(
+            manual_servoboards, ignored_serials)
+        self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_serials)
         if raw_ports:
             self._raw_ports = RawSerial._get_supported_boards(raw_ports)
 
