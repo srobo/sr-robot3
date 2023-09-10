@@ -181,22 +181,22 @@ class RawSerial(Board):
         if not self._serial.is_open:
             if not self._reconnect():
                 # If the serial port cannot be opened raise an error
-                raise BoardDisconnectionError((
+                raise BoardDisconnectionError(
                     f'Connection to port {self._identity.board_type}:'
                     f'{self._identity.asset_tag} could not be established',
-                ))
+                )
         try:
             yield
         except (SerialException, OSError):
             # Serial connection failed, close the port and raise an error
             self._serial.close()
             logger.warning(
-                f'Port {self._identity.board_type}:{self._identity.asset_tag} disconnected'
+                f'Port {self._identity.board_type}:{self._identity.asset_tag} disconnected',
             )
-            raise BoardDisconnectionError((
+            raise BoardDisconnectionError(
                 f'Port {self._identity.board_type}:{self._identity.asset_tag} '
-                'disconnected during transaction'
-            ))
+                'disconnected during transaction',
+            )
 
     def _reconnect(self) -> bool:
         """
@@ -214,14 +214,14 @@ class RawSerial(Board):
             sleep(self.delay_after_connect)
             self._serial.reset_input_buffer()
         except SerialException:
-            logger.error((
+            logger.error(
                 'Failed to connect to port '
-                f'{self._identity.board_type}:{self._identity.asset_tag}'
-            ))
+                f'{self._identity.board_type}:{self._identity.asset_tag}',
+            )
             return False
 
         logger.info(
-            f'Connected to port {self._identity.board_type}: {self._identity.asset_tag}'
+            f'Connected to port {self._identity.board_type}: {self._identity.asset_tag}',
         )
         return True
 
