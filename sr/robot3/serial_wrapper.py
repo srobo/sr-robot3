@@ -133,10 +133,10 @@ class SerialWrapper:
                 if not self._connect():
                     # If the serial port cannot be opened raise an error,
                     # this will be caught by the retry decorator
-                    raise BoardDisconnectionError((
+                    raise BoardDisconnectionError(
                         f'Connection to board {self.identity.board_type}:'
                         f'{self.identity.asset_tag} could not be established',
-                    ))
+                    )
 
             try:
                 if data is not None:
@@ -172,10 +172,10 @@ class SerialWrapper:
 
             if response_str.startswith('NACK'):
                 _, error_msg = response_str.split(':', maxsplit=1)
-                logger.error((
+                logger.error(
                     f'Board {self.identity.board_type}:{self.identity.asset_tag} '
                     f'returned NACK on write command: {error_msg}'
-                ))
+                )
                 raise RuntimeError(error_msg)
 
             return response_str
@@ -207,10 +207,10 @@ class SerialWrapper:
             time.sleep(self.delay_after_connect)
             self.serial.reset_input_buffer()
         except serial.SerialException:
-            logger.error((
+            logger.error(
                 'Failed to connect to board '
                 f'{self.identity.board_type}:{self.identity.asset_tag}'
-            ))
+            )
             return False
 
         logger.info(

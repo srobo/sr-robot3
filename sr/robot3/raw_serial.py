@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from time import sleep
 from types import MappingProxyType
-from typing import NamedTuple, Optional
+from typing import Generator, NamedTuple, Optional
 
-from serial import Serial, serial_for_url
+from serial import Serial, SerialException, serial_for_url
 from serial.tools.list_ports import comports
 
+from .exceptions import BoardDisconnectionError
 from .logging import log_to_debug
 from .utils import Board, BoardIdentity, get_USB_identity
 
@@ -33,7 +35,7 @@ class RawSerial(Board):
     :param baudrate: The baudrate to use when connecting.
     :param identity: The identity of the board, as reported by the USB descriptor.
     """
-    __slots__ = ('_serial', '_identity')
+    __slots__ = ('_serial', '_identity', 'delay_after_connect')
 
     @staticmethod
     def get_board_type() -> str:
@@ -63,9 +65,13 @@ class RawSerial(Board):
             serial_port,
             baudrate=baudrate,
             timeout=0.5,  # 500ms timeout
+            do_not_open=True,
         )
 
-        sleep(2)  # Wait for boards to reset after connecting
+        # Certain boards will reset when the serial port is opened
+        # Wait for the board to be ready to receive data
+        self.delay_after_connect = 2
+        self._reconnect()
 
     @classmethod
     def _get_supported_boards(
@@ -123,9 +129,9 @@ class RawSerial(Board):
 
     @property
     @log_to_debug
-    def raw(self) -> Serial:
+    def port(self) -> Serial:
         """
-        The raw serial port.
+        The pySerial Serial object.
 
         :return: The raw serial port.
         """
@@ -138,7 +144,8 @@ class RawSerial(Board):
 
         :param data: The bytes to send.
         """
-        self._serial.write(data)
+        with self._handle_serial_reconnect():
+            self._serial.write(data)
 
     @log_to_debug
     def read(self, size: int) -> bytes:
@@ -148,7 +155,8 @@ class RawSerial(Board):
         :param size: The number of bytes to read.
         :return: The line read from the port.
         """
-        return self._serial.read(size)
+        with self._handle_serial_reconnect():
+            return self._serial.read(size)
 
     @log_to_debug
     def read_until(self, terminator: bytes = b'\n') -> bytes:
@@ -158,7 +166,57 @@ class RawSerial(Board):
         :param terminator: The terminator character to stop reading at.
         :return: The data read from the port.
         """
-        return self._serial.read_until(terminator)
+        with self._handle_serial_reconnect():
+            return self._serial.read_until(terminator)
+
+    @contextmanager
+    def _handle_serial_reconnect(self) -> Generator[None, None, None]:
+        if not self._serial.is_open:
+            if not self._reconnect():
+                # If the serial port cannot be opened raise an error
+                raise BoardDisconnectionError(
+                    f'Connection to port {self._identity.board_type}:'
+                    f'{self._identity.asset_tag} could not be established',
+                )
+        try:
+            yield
+        except (SerialException, OSError):
+            # Serial connection failed, close the port and raise an error
+            self._serial.close()
+            logger.warning(
+                f'Port {self._identity.board_type}:{self._identity.asset_tag} disconnected',
+            )
+            raise BoardDisconnectionError(
+                f'Port {self._identity.board_type}:{self._identity.asset_tag} '
+                'disconnected during transaction',
+            )
+
+    def _reconnect(self) -> bool:
+        """
+        Connect to the class's serial port.
+
+        This is called automatically when a message is sent to the board if the port is closed.
+
+        :raises serial.SerialException: If the serial port cannot be opened.
+        :return: True if the serial port was opened successfully, False otherwise.
+        """
+        try:
+            self._serial.open()
+            # Wait for the board to be ready to receive data
+            # Certain boards will reset when the serial port is opened
+            sleep(self.delay_after_connect)
+            self._serial.reset_input_buffer()
+        except SerialException:
+            logger.error(
+                'Failed to connect to port '
+                f'{self._identity.board_type}:{self._identity.asset_tag}',
+            )
+            return False
+
+        logger.info(
+            f'Connected to port {self._identity.board_type}: {self._identity.asset_tag}',
+        )
+        return True
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"

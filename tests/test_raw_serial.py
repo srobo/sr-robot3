@@ -41,8 +41,14 @@ def test_invalid_properties(raw_serial: MockRawSerial) -> None:
         serial_device.invalid_property = 1
 
     assert raw_serial.serial_wrapper.mock_calls == [
-        call('test://', baudrate=115200, timeout=0.5)]
-    assert raw_serial.serial_wrapper.return_value.mock_calls == []
+        call('test://', baudrate=115200, timeout=0.5, do_not_open=True),
+        call().open(),
+        call().reset_input_buffer(),
+    ]
+    assert raw_serial.serial_wrapper.return_value.mock_calls == [
+        call.open(),
+        call.reset_input_buffer(),
+    ]
 
 
 def test_serial_device_discovery(monkeypatch) -> None:
@@ -102,8 +108,12 @@ def test_serial_device_discovery(monkeypatch) -> None:
             ),
         ])
         assert MockSerial.mock_calls == [
-            call('test://1', baudrate=115200, timeout=0.5),
-            call('test://3', baudrate=9600, timeout=0.5),
+            call('test://1', baudrate=115200, timeout=0.5, do_not_open=True),
+            call().open(),
+            call().reset_input_buffer(),
+            call('test://3', baudrate=9600, timeout=0.5, do_not_open=True),
+            call().open(),
+            call().reset_input_buffer(),
         ]
 
         assert len(serial_devices) == 2
