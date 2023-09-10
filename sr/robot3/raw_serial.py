@@ -33,7 +33,7 @@ class RawSerial(Board):
     :param baudrate: The baudrate to use when connecting.
     :param identity: The identity of the board, as reported by the USB descriptor.
     """
-    __slots__ = ('_serial', '_identity')
+    __slots__ = ('_serial', '_identity', 'delay_after_connect')
 
     @staticmethod
     def get_board_type() -> str:
@@ -63,9 +63,20 @@ class RawSerial(Board):
             serial_port,
             baudrate=baudrate,
             timeout=0.5,  # 500ms timeout
+            do_not_open=True,
         )
+        try:
+            self._serial.open()
+        except SerialException:
+            logger.warning(
+                f'Failed to open RawSerial port {identity.board_type}:{identity.asset_tag}'
+            )
+            pass
 
-        sleep(2)  # Wait for boards to reset after connecting
+        # Certain boards will reset when the serial port is opened
+        # Wait for the board to be ready to receive data
+        self.delay_after_connect = 2
+        sleep(self.delay_after_connect)
 
     @classmethod
     def _get_supported_boards(
