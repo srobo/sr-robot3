@@ -36,7 +36,7 @@ def setup_logging(debug_logging: bool, trace_logging: bool) -> None:
     """
     logformat = '%(name)s - %(levelname)s - %(message)s'
     formatter = logging.Formatter(fmt=logformat)
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
