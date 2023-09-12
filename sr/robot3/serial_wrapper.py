@@ -41,7 +41,7 @@ def retry(
     This outer function is used to pass arguments to the decorator.
 
     :param times: The number of times to retry the function.
-    :param exceptions: The exception to catch and retry on.
+    :param exceptions: The exceptions to catch and retry on.
     :return: The templated decorator function.
     """
     def decorator(func: Callable[Param, RetType]) -> Callable[Param, RetType]:
@@ -124,9 +124,11 @@ class SerialWrapper:
         up to 3 times on serial errors.
 
         :param data: The data to write to the board.
+        :param endl: The endline character to add to outgoing data and remove from
+            received data
         :raises BoardDisconnectionError: If the serial connection fails during the transaction,
             including failing to respond to the command.
-        :return: The response from the board with the trailing newline removed.
+        :return: The response from the board with the trailing endline character removed.
         """
         with self._lock:
             if not self.serial.is_open:
@@ -185,6 +187,8 @@ class SerialWrapper:
         Send a command to the board that does not require a response.
 
         :param data: The data to write to the board.
+        :param endl: The endline character to add to outgoing data and remove from
+            received data
         :raises RuntimeError: If the board returns a NACK response,
             the firmware's error message is raised.
         """

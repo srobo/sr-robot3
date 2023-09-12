@@ -149,6 +149,7 @@ class Arduino(Board):
 
         :param manual_boards: A list of manually specified board port strings,
             defaults to None
+        :param ignored_serials: A list of serial number to ignore during board discovery
         :return: A mapping of board serial numbers to Arduinos
         """
         boards = {}
@@ -230,6 +231,7 @@ class Arduino(Board):
         Map the pin number to the the serial format.
         Pin numbers are sent as printable ASCII characters, with 0 being 'a'.
 
+        :param pin_number: The pin number to encode.
         :return: The pin number in the serial format.
         :raises ValueError: If the pin number is invalid.
         """
@@ -250,6 +252,7 @@ class Pin:
     :param serial: The serial wrapper to use to communicate with the board.
     :param index: The index of the pin.
     :param supports_analog: Whether the pin supports analog reads.
+    :param disabled: Whether the pin can be controlled.
     """
     __slots__ = ('_serial', '_index', '_supports_analog', '_disabled', '_mode')
 
@@ -380,7 +383,7 @@ class Pin:
         """
         Generate the command to send to the board.
 
-        :param command: The command character to send.
+        :param cmd_char: The command character to send.
         :return: The command string.
         """
         return f'{cmd_char}{self._map_pin_number()}'
@@ -392,13 +395,6 @@ class Pin:
             f"disabled={self._disabled} {self._serial}>"
         )
 
-
-# PIN:<n>:MODE:GET?
-# PIN:<n>:MODE:SET:<value>
-# PIN:<n>:DIGITAL:GET?
-# PIN:<n>:DIGITAL:SET:<1/0>
-# PIN:<n>:ANALOG:GET?
-# ULTRASOUND:<pulse>:<echo>:MEASURE?
 
 if __name__ == '__main__':  # pragma: no cover
     arduinos = Arduino._get_supported_boards()
