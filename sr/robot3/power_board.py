@@ -501,7 +501,7 @@ class Piezo:
             frequency, 8, 10_000, "Frequency must be between 8 and 10000Hz"))
         duration_ms = int(float_bounds_check(
             duration * 1000, 0, 2**31 - 1,
-            f"Duration is a float in seconds between 0 and {(2**31-1)/1000:,.0f}"))
+            f"Duration is a float in seconds between 0 and {(2**31 - 1) / 1000:,.0f}"))
 
         cmd = f'NOTE:{frequency_int}:{duration_ms}'
         self._serial.write(cmd)
