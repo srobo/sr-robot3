@@ -20,6 +20,7 @@ DUTY_MIN = 500
 DUTY_MAX = 4000
 START_DUTY_MIN = 1000
 START_DUTY_MAX = 2000
+NUM_SERVOS = 12
 
 logger = logging.getLogger(__name__)
 BAUDRATE = 115200  # Since the servo board is a USB device, this is ignored
@@ -77,7 +78,7 @@ class ServoBoard(Board):
         self._serial = SerialWrapper(serial_port, BAUDRATE, identity=initial_identity)
 
         self._servos = tuple(
-            Servo(self._serial, index) for index in range(12)
+            Servo(self._serial, index) for index in range(NUM_SERVOS)
         )
 
         self._identity = self.identify()
