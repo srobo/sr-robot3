@@ -29,6 +29,7 @@ Param = ParamSpec("Param")
 RetType = TypeVar("RetType")
 
 E = TypeVar("E", bound=BaseException)
+BASE_TIMEOUT: float | None = 0.5
 
 
 def retry(
@@ -80,7 +81,7 @@ class SerialWrapper:
         self,
         port: str,
         baud: int,
-        timeout: float = 0.5,
+        timeout: float | None = BASE_TIMEOUT,
         identity: BoardIdentity = BoardIdentity(),
         delay_after_connect: float = 0,
     ):
@@ -96,6 +97,7 @@ class SerialWrapper:
             port,
             baudrate=baud,
             timeout=timeout,
+            write_timeout=timeout,
             do_not_open=True,
         )
 
