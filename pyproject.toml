@@ -54,7 +54,7 @@ requires-python = ">=3.8"
 dependencies = [
     "pyserial >=3,<4",
     "april_vision >=2.1,<3",
-    "paho-mqtt >=1.6,<2",
+    "paho-mqtt >=2,<3",
     "pydantic >=1.9.1,<2",
     "typing-extensions; python_version<'3.10'",
 ]
@@ -75,11 +75,12 @@ Documentation = "https://docs.studentrobotics.org"
 dev = [
     "flake8",
     "isort",
-    "mypy",
+    "mypy==1.10.0; python_version<'3.9'",
+    "mypy>=1.7,<2; python_version>='3.9'",
     "build",
     "types-pyserial",
     "pytest",
     "pytest-cov",
-    "types-paho-mqtt",
+    "paho-mqtt >=2,<3"
 ]
 vision = ["opencv-python-headless >=4,<5"]
