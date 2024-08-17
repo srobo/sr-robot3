@@ -36,6 +36,7 @@ if IN_SIMULATOR:
 else:
     BASE_TIMEOUT = 0.5
 
+
 def retry(
     times: int, exceptions: Union[type[E], tuple[type[E], ...]]
 ) -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
