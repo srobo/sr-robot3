@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import os
 import time
 from pathlib import Path
 from socket import socket
@@ -75,7 +76,11 @@ class Robot:
 
         logger.info(f"sr.robot3 version {__version__}")
 
-        self._mqtt, self._astoria = init_astoria_mqtt()
+        if IN_SIMULATOR:
+            self._mqtt = None
+            self._astoria = None
+        else:
+            self._mqtt, self._astoria = init_astoria_mqtt()
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -145,9 +150,16 @@ class Robot:
         These cameras are used for AprilTag detection and provide location data of
         markers in its field of view.
         """
+
+        if IN_SIMULATOR:
+            publish_fn = None
+        else:
+            assert self._mqtt is not None
+            publish_fn = self._mqtt.wrapped_publish
+
         self._cameras = MappingProxyType(_setup_cameras(
             game_specific.MARKER_SIZES,
-            self._mqtt.wrapped_publish,
+            publish_fn,
         ))
 
     def _log_connected_boards(self) -> None:
@@ -316,7 +328,7 @@ class Robot:
         """
         if IN_SIMULATOR:
             assert isinstance(self._lock, TimeServer)
-            self._lock.get_time()
+            return self._lock.get_time()
         else:
             return time.time()
 
@@ -369,7 +381,11 @@ class Robot:
 
         :returns: path to the mountpoint of the USB code drive.
         """
-        return self._astoria.fetch_mount_path()
+        if IN_SIMULATOR:
+            return Path(os.environ['SBOT_USBKEY_PATH'])
+        else:
+            assert self._astoria is not None
+            return self._astoria.fetch_mount_path()
 
     @property
     def is_simulated(self) -> bool:
@@ -390,25 +406,38 @@ class Robot:
         Once the start button is pressed, the metadata will be loaded and the timeout
         will start if in competition mode.
         """
+        def null_button_pressed() -> bool:
+            return False
+
+        if IN_SIMULATOR:
+            remote_start_pressed = null_button_pressed
+        else:
+            assert self._astoria is not None
+            remote_start_pressed = self._astoria.get_start_button_pressed
+
         # ignore previous button presses
         _ = self.power_board._start_button()
-        _ = self._astoria.get_start_button_pressed()
+        _ = remote_start_pressed()
         logger.info('Waiting for start button.')
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
         self.kch._flash_start()
 
-        while not (
-            self.power_board._start_button() or self._astoria.get_start_button_pressed()
-        ):
+        while not self.power_board._start_button() or remote_start_pressed():
             time.sleep(0.1)
         logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
         self.kch._start = False
 
-        # Load the latest metadata that we have received over MQTT
-        self._metadata = self._astoria.fetch_current_metadata()
+        if IN_SIMULATOR:
+            self._metadata = Metadata.parse_file(
+                Path(os.environ['SBOT_METADATA_PATH']) / 'astoria.json'
+            )
+        else:
+            assert self._astoria is not None
+            # Load the latest metadata that we have received over MQTT
+            self._metadata = self._astoria.fetch_current_metadata()
 
         # Simulator timeout is handled by the simulator supervisor
         if self._metadata.game_timeout and not IN_SIMULATOR:
