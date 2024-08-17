@@ -5,6 +5,7 @@ import itertools
 import logging
 import time
 from pathlib import Path
+from socket import socket
 from types import MappingProxyType
 from typing import Mapping, Optional
 
@@ -20,7 +21,8 @@ from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
 from .raw_serial import RawSerial
 from .servo_board import ServoBoard
-from .utils import ensure_atexit_on_term, obtain_lock, singular
+from .simulator.time_server import TimeServer
+from .utils import IN_SIMULATOR, ensure_atexit_on_term, obtain_lock, singular
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class Robot:
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
         '_arduinos', '_cameras', '_mqtt', '_astoria', '_kch', '_raw_ports',
+        '_time_server',
     )
 
     def __init__(
@@ -56,7 +59,15 @@ class Robot:
         manual_boards: Optional[dict[str, list[str]]] = None,
         raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
-        self._lock = obtain_lock()
+        self._lock: TimeServer | socket | None
+        if IN_SIMULATOR:
+            self._lock = TimeServer.initialise()
+            if self._lock is None:
+                raise OSError(
+                    'Unable to obtain lock, Is another robot instance already running?'
+                )
+        else:
+            self._lock = obtain_lock()
         self._metadata: Optional[Metadata] = None
 
         setup_logging(debug, trace_logging)
@@ -284,7 +295,11 @@ class Robot:
 
         :param secs: The number of seconds to sleep for
         """
-        time.sleep(secs)
+        if IN_SIMULATOR:
+            assert isinstance(self._lock, TimeServer)
+            self._lock.sleep(secs)
+        else:
+            time.sleep(secs)
 
     @log_to_debug
     def time(self) -> float:
@@ -299,7 +314,11 @@ class Robot:
 
         :returns: the number of seconds since the Unix Epoch.
         """
-        return time.time()
+        if IN_SIMULATOR:
+            assert isinstance(self._lock, TimeServer)
+            self._lock.get_time()
+        else:
+            return time.time()
 
     @property
     @log_to_debug
@@ -359,7 +378,7 @@ class Robot:
 
         :returns: True if the robot is simulated. False otherwise.
         """
-        return False
+        return IN_SIMULATOR
 
     @log_to_debug
     def wait_start(self) -> None:
@@ -391,5 +410,6 @@ class Robot:
         # Load the latest metadata that we have received over MQTT
         self._metadata = self._astoria.fetch_current_metadata()
 
-        if self._metadata.game_timeout is not None:
+        # Simulator timeout is handled by the simulator supervisor
+        if self._metadata.game_timeout and not IN_SIMULATOR:
             timeout.kill_after_delay(self._metadata.game_timeout)

@@ -11,7 +11,10 @@ from serial.tools.list_ports import comports
 from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
-from .utils import Board, BoardIdentity, get_USB_identity, map_to_float
+from .utils import (
+    IN_SIMULATOR, Board, BoardIdentity,
+    get_simulator_boards, get_USB_identity, map_to_float,
+)
 
 logger = logging.getLogger(__name__)
 BAUDRATE = 115200
@@ -127,16 +130,45 @@ class Arduino(Board):
                 f"expected {err.expected_type!r}. Ignoring this device")
             return None
         except Exception:
-            if initial_identity is not None and initial_identity.board_type == 'manual':
-                logger.warning(
-                    f"Manually specified Arduino at port {serial_port!r}, "
-                    "could not be identified. Ignoring this device")
-            else:
-                logger.warning(
-                    f"Found Arduino-like serial port at {serial_port!r}, "
-                    "but it could not be identified. Ignoring this device")
+            if initial_identity is not None:
+                if initial_identity.board_type == 'manual':
+                    logger.warning(
+                        f"Manually specified Arduino at port {serial_port!r}, "
+                        "could not be identified. Ignoring this device")
+                elif initial_identity.manufacturer == 'sbot_simulator':
+                    logger.warning(
+                        f"Simulator specified arduino at port {serial_port!r}, "
+                        "could not be identified. Ignoring this device")
+                return None
+
+            logger.warning(
+                f"Found Arduino-like serial port at {serial_port!r}, "
+                "but it could not be identified. Ignoring this device")
             return None
         return board
+
+    @classmethod
+    def _get_simulator_boards(cls) -> MappingProxyType[str, Arduino]:
+        """
+        Get the simulator boards.
+
+        :return: A mapping of board serial numbers to Arduinos
+        """
+        boards = {}
+        # The filter here is the name of the emulated board in the simulator
+        for board_info in get_simulator_boards('Arduino'):
+
+            # Create board identity from the info given
+            initial_identity = BoardIdentity(
+                manufacturer='sbot_simulator',
+                board_type=board_info.type_str,
+                asset_tag=board_info.serial_number,
+            )
+            if (board := cls._get_valid_board(board_info.url, initial_identity)) is None:
+                continue
+
+            boards[board._identity.asset_tag] = board
+        return MappingProxyType(boards)
 
     @classmethod
     def _get_supported_boards(
@@ -152,6 +184,9 @@ class Arduino(Board):
         :param ignored_serials: A list of serial number to ignore during board discovery
         :return: A mapping of board serial numbers to Arduinos
         """
+        if IN_SIMULATOR:
+            return cls._get_simulator_boards()
+
         boards = {}
         if ignored_serials is None:
             ignored_serials = []
