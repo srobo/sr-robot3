@@ -164,34 +164,41 @@ class AprilCamera(Board):
         """
         self._cam.close()
 
-    def see(self, *, frame: Optional[NDArray] = None) -> List[Marker]:
+    def see(
+        self,
+        *,
+        frame: Optional[NDArray] = None,
+        save: Optional[PathLike] = None,
+    ) -> List[Marker]:
         """
         Capture an image and identify fiducial markers.
 
         :param frame: An image to detect markers in, instead of capturing a new one,
+        :param save: If given, save the annotated frame to the path.
+                     This is given a JPEG extension if none is provided.
         :returns: list of markers that the camera could see.
         """
+        if frame is None:
+            frame = self._cam.capture()
+
         markers = self._cam.see(frame=frame)
+
+        if save:
+            self._cam.save(save, frame=frame, detections=markers)
         return [Marker.from_april_vision_marker(marker) for marker in markers]
 
-    def capture(self) -> NDArray:
+    def capture(self, *, save: Optional[PathLike] = None) -> NDArray:
         """
         Get the raw image data from the camera.
 
+        :param save: If given, save the annotated frame to the path.
+                     This is given a JPEG extension if none is provided.
         :returns: Camera pixel data
         """
-        return self._cam.capture()
-
-    def save(self, path: Union[Path, str], *, frame: Optional[NDArray] = None) -> None:
-        """
-        Save an annotated image to a path.
-
-        :param path: The path to save the image to,
-            this is given a JPEG extension if none is provided.
-        :param frame: An image to annotate and save, instead of capturing a new one,
-            defaults to None
-        """
-        self._cam.save(path, frame=frame)
+        raw_frame = self._cam.capture()
+        if save:
+            self._cam.save(save, frame=raw_frame, annotated=False)
+        return raw_frame
 
     def _set_marker_sizes(
         self,
