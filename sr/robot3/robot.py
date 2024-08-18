@@ -304,8 +304,8 @@ class Robot:
         """
         Sleep for a number of seconds.
 
-        This is a convenience method that can be used instead of time.sleep().
-        This exists for compatibility with the simulator API only.
+        This is a convenience method that should be used instead of time.sleep()
+        to make your code compatible with the simulator.
 
         :param secs: The number of seconds to sleep for
         """
@@ -320,8 +320,8 @@ class Robot:
         """
         Get the number of seconds since the Unix Epoch.
 
-        This is a convenience method that can be used instead of time.time().
-        This exists for compatibility with the simulator API only.
+        This is a convenience method that should be used instead of time.time()
+        to make your code compatible with the simulator.
 
         NOTE: The robot's clock resets each time the robot is restarted, so this
         will not be the correct actual time but can be used to measure elapsed time.
@@ -427,7 +427,7 @@ class Robot:
         self.kch._flash_start()
 
         while not self.power_board._start_button() or remote_start_pressed():
-            time.sleep(0.1)
+            self.sleep(0.1)
         logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
         self.kch._start = False
