@@ -141,7 +141,10 @@ class Robot:
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
         self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
         if raw_ports:
-            self._raw_ports = RawSerial._get_supported_boards(raw_ports)
+            if not IN_SIMULATOR:
+                self._raw_ports = RawSerial._get_supported_boards(raw_ports)
+            else:
+                logger.warning("Raw ports are not available in the simulator.")
 
     def _init_camera(self) -> None:
         """
@@ -150,7 +153,6 @@ class Robot:
         These cameras are used for AprilTag detection and provide location data of
         markers in its field of view.
         """
-
         if IN_SIMULATOR:
             publish_fn = None
         else:
