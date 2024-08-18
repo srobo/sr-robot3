@@ -6,7 +6,7 @@ import logging
 from enum import IntEnum
 from time import sleep
 from types import MappingProxyType
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
@@ -20,6 +20,7 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 BAUDRATE = 115200  # Since the power board is a USB device, this is ignored
+_SLEEP_FN = sleep  # For use in the simulator
 
 
 class PowerOutputPosition(IntEnum):
@@ -176,7 +177,9 @@ class PowerBoard(Board):
 
     @classmethod
     def _get_supported_boards(
-        cls, manual_boards: Optional[list[str]] = None,
+        cls,
+        manual_boards: Optional[list[str]] = None,
+        sleep_fn: Optional[Callable[[float], None]] = None,
     ) -> MappingProxyType[str, PowerBoard]:
         """
         Find all connected power boards.
@@ -187,6 +190,9 @@ class PowerBoard(Board):
             to connect to, defaults to None
         :return: A mapping of serial numbers to power boards.
         """
+        if sleep_fn is not None:
+            global _SLEEP_FN
+            _SLEEP_FN = sleep_fn
         if IN_SIMULATOR:
             return cls._get_simulator_boards()
 
@@ -541,7 +547,7 @@ class Piezo:
         self._serial.write(cmd)
 
         if blocking:
-            sleep(duration)
+            _SLEEP_FN(duration)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"

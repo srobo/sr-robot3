@@ -104,7 +104,7 @@ class Robot:
             defaults to None
         :raises RuntimeError: If exactly one PowerBoard is not found
         """
-        power_boards = PowerBoard._get_supported_boards(manual_boards)
+        power_boards = PowerBoard._get_supported_boards(manual_boards, sleep_fn=self.sleep)
         self._power_board = singular(power_boards)
 
         # Enable all the outputs, so that we can find other boards.
