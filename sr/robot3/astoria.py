@@ -9,8 +9,9 @@ from threading import Event, Lock
 from time import sleep
 from typing import Any, ClassVar, NewType, Optional, Tuple
 
+import paho.mqtt.client as mqtt
 from paho.mqtt.client import Client as MQTT
-from paho.mqtt.client import MQTTMessage, MQTTv5, MQTTv311
+from paho.mqtt.client import MQTTMessage
 from pydantic import BaseModel, ValidationError
 
 from .mqtt import MQTTClient
@@ -278,7 +279,11 @@ def init_mqtt(config: AstoriaConfig, client_name: str = 'sr-robot3') -> 'MQTTCli
         host=config.mqtt.host,
         port=config.mqtt.port,
         client_name=client_name,
-        mqtt_version=MQTTv311 if config.mqtt.force_protocol_version_3_1 else MQTTv5,
+        mqtt_version=(
+            mqtt.MQTTProtocolVersion.MQTTv311
+            if config.mqtt.force_protocol_version_3_1 else
+            mqtt.MQTTProtocolVersion.MQTTv5
+        ),
         topic_prefix=config.mqtt.topic_prefix,
     )
     return client

@@ -3,6 +3,7 @@ from __future__ import annotations
 import atexit
 import json
 import logging
+import time
 from threading import Lock
 from typing import Any, Callable, Optional, TypedDict, Union
 from urllib.parse import urlparse
@@ -17,7 +18,7 @@ class MQTTClient:
         self,
         client_name: Optional[str] = None,
         topic_prefix: Optional[str] = None,
-        mqtt_version: int = mqtt.MQTTv5,
+        mqtt_version: mqtt.MQTTProtocolVersion = mqtt.MQTTProtocolVersion.MQTTv5,
         use_tls: Union[bool, str] = False,
         username: str = '',
         password: str = '',
@@ -29,7 +30,11 @@ class MQTTClient:
         self.topic_prefix = topic_prefix
         self._client_name = client_name
 
-        self._client = mqtt.Client(client_id=client_name, protocol=mqtt_version)
+        self._client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_name,
+            protocol=mqtt_version,
+        )
         self._client.on_connect = self._on_connect
 
         if use_tls:
@@ -143,19 +148,29 @@ class MQTTClient:
         """Wrap a payload up to be decodable as JSON."""
         if isinstance(payload, bytes):
             payload = payload.decode('utf-8')
+
+        payload_dict = {
+            "timestamp": time.time(),
+            "data": payload,
+        }
+
         self.publish(
             topic,
-            json.dumps({"data": payload}),
+            json.dumps(payload_dict),
             retain=retain, abs_topic=abs_topic)
 
     def _on_connect(
-        self, client: mqtt.Client, userdata: Any, flags: dict[str, int], rc: int,
-        properties: Optional[mqtt.Properties] = None,
+        self,
+        client: mqtt.Client,
+        userdata: Any,
+        connect_flags: mqtt.ConnectFlags,
+        reason_code: mqtt.ReasonCode,
+        properties: mqtt.Properties | None = None,
     ) -> None:
         """Callback run each time the client connects to the broker."""
-        if rc != mqtt.CONNACK_ACCEPTED:
+        if reason_code.is_failure:
             LOGGER.warning(
-                f"Failed to connect to MQTT broker. Return code: {mqtt.error_string(rc)}"
+                f"Failed to connect to MQTT broker. Return code: {reason_code.getName()}"  # type: ignore[no-untyped-call] # noqa: E501
             )
             return
 
@@ -182,7 +197,7 @@ def unpack_mqtt_url(url: str) -> MQTTVariables:
     The URL should be in the format:
     mqtt[s]://[<username>[:<password>]]@<host>[:<port>]/<topic_root>
     """
-    url_parts = urlparse(url)
+    url_parts = urlparse(url, allow_fragments=False)
 
     if url_parts.scheme not in ('mqtt', 'mqtts'):
         raise ValueError(f"Invalid scheme: {url_parts.scheme}")
