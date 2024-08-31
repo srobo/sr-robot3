@@ -138,11 +138,11 @@ class Arduino(Board):
             if initial_identity is not None:
                 if initial_identity.board_type == 'manual':
                     logger.warning(
-                        f"Manually specified Arduino at port {serial_port!r}, "
+                        f"Manually specified Arduino at port {serial_port!r} "
                         "could not be identified. Ignoring this device")
                 elif initial_identity.manufacturer == 'sbot_simulator':
                     logger.warning(
-                        f"Simulator specified arduino at port {serial_port!r}, "
+                        f"Simulator specified arduino at port {serial_port!r} "
                         "could not be identified. Ignoring this device")
                 return None
 
