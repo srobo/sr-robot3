@@ -11,10 +11,18 @@ from serial.tools.list_ports import comports
 from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
-from .utils import Board, BoardIdentity, get_USB_identity, map_to_float
+from .utils import (
+    IN_SIMULATOR, Board, BoardIdentity,
+    get_simulator_boards, get_USB_identity, map_to_float,
+)
 
 logger = logging.getLogger(__name__)
 BAUDRATE = 115200
+if IN_SIMULATOR:
+    # Place each command on a new line in the simulator to simplify the implementation
+    ENDLINE = '\n'
+else:
+    ENDLINE = ''
 
 SUPPORTED_VID_PIDS = {
     (0x2341, 0x0043),  # Arduino Uno rev 3
@@ -58,7 +66,7 @@ class Arduino(Board):
     """
     The Arduino board interface.
 
-    This is intended to be used with Arduino Uno boards running the sbot firmware.
+    This is intended to be used with Arduino Uno boards running the SR firmware.
 
     :param serial_port: The serial port to connect to.
     :param initial_identity: The identity of the board, as reported by the USB descriptor.
@@ -127,16 +135,45 @@ class Arduino(Board):
                 f"expected {err.expected_type!r}. Ignoring this device")
             return None
         except Exception:
-            if initial_identity is not None and initial_identity.board_type == 'manual':
-                logger.warning(
-                    f"Manually specified Arduino at port {serial_port!r}, "
-                    "could not be identified. Ignoring this device")
-            else:
-                logger.warning(
-                    f"Found Arduino-like serial port at {serial_port!r}, "
-                    "but it could not be identified. Ignoring this device")
+            if initial_identity is not None:
+                if initial_identity.board_type == 'manual':
+                    logger.warning(
+                        f"Manually specified Arduino at port {serial_port!r} "
+                        "could not be identified. Ignoring this device")
+                elif initial_identity.manufacturer == 'sbot_simulator':
+                    logger.warning(
+                        f"Simulator specified arduino at port {serial_port!r} "
+                        "could not be identified. Ignoring this device")
+                return None
+
+            logger.warning(
+                f"Found Arduino-like serial port at {serial_port!r}, "
+                "but it could not be identified. Ignoring this device")
             return None
         return board
+
+    @classmethod
+    def _get_simulator_boards(cls) -> MappingProxyType[str, Arduino]:
+        """
+        Get the simulator boards.
+
+        :return: A mapping of board serial numbers to Arduinos
+        """
+        boards = {}
+        # The filter here is the name of the emulated board in the simulator
+        for board_info in get_simulator_boards('Arduino'):
+
+            # Create board identity from the info given
+            initial_identity = BoardIdentity(
+                manufacturer='sbot_simulator',
+                board_type=board_info.type_str,
+                asset_tag=board_info.serial_number,
+            )
+            if (board := cls._get_valid_board(board_info.url, initial_identity)) is None:
+                continue
+
+            boards[board._identity.asset_tag] = board
+        return MappingProxyType(boards)
 
     @classmethod
     def _get_supported_boards(
@@ -152,6 +189,9 @@ class Arduino(Board):
         :param ignored_serials: A list of serial number to ignore during board discovery
         :return: A mapping of board serial numbers to Arduinos
         """
+        if IN_SIMULATOR:
+            return cls._get_simulator_boards()
+
         boards = {}
         if ignored_serials is None:
             ignored_serials = []
@@ -192,7 +232,7 @@ class Arduino(Board):
 
         :return: The identity of the board.
         """
-        response = self._serial.query('v', endl='')
+        response = self._serial.query('v', endl=ENDLINE)
         response_fields = response.split(':')
 
         # The arduino firmware cannot access the serial number reported in the USB descriptor
@@ -224,7 +264,9 @@ class Arduino(Board):
         :param command: The command to send to the board.
         :return: The response from the board.
         """
-        return self._serial.query(command, endl='')
+        if IN_SIMULATOR:
+            logger.warning("The command method is not fully supported in the simulator")
+        return self._serial.query(command, endl=ENDLINE)
 
     def map_pin_number(self, pin_number: int) -> str:
         """
@@ -240,6 +282,34 @@ class Arduino(Board):
         except (IndexError, IOError):
             raise ValueError("Invalid pin provided") from None
         return chr(pin_number + ord('a'))
+
+    @log_to_debug
+    def ultrasound_measure(
+        self,
+        pulse_pin: int,
+        echo_pin: int,
+    ) -> int:
+        """
+        Measure the distance to an object using an ultrasound sensor.
+
+        The sensor can only measure distances up to 4m.
+
+        :param pulse_pin: The pin to send the ultrasound pulse from.
+        :param echo_pin: The pin to read the ultrasound echo from.
+        :raises ValueError: If either of the pins are invalid
+        :return: The distance measured by the ultrasound sensor in mm.
+        """
+        try:  # bounds check
+            pulse_id = self.map_pin_number(pulse_pin)
+        except ValueError:
+            raise ValueError("Invalid pulse pin provided") from None
+        try:
+            echo_id = self.map_pin_number(echo_pin)
+        except ValueError:
+            raise ValueError("Invalid echo pin provided") from None
+
+        response = self._serial.query(f'u{pulse_id}{echo_id}', endl=ENDLINE)
+        return int(response)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
@@ -303,7 +373,7 @@ class Pin:
         mode_char = MODE_CHAR_MAP.get(value)
         if mode_char is None:
             raise IOError(f'Pin mode {value} is not supported')
-        self._serial.write(self._build_command(mode_char), endl='')
+        self._serial.write(self._build_command(mode_char), endl=ENDLINE)
         self._mode = value
 
     @log_to_debug
@@ -318,7 +388,7 @@ class Pin:
         self._check_if_disabled()
         if self.mode not in DIGITAL_READ_MODES:
             raise IOError(f'Digital read is not supported in {self.mode}')
-        response = self._serial.query(self._build_command('r'), endl='')
+        response = self._serial.query(self._build_command('r'), endl=ENDLINE)
         return response == 'h'
 
     @log_to_debug
@@ -334,9 +404,9 @@ class Pin:
         if self.mode not in DIGITAL_WRITE_MODES:
             raise IOError(f'Digital write is not supported in {self.mode}')
         if value:
-            self._serial.write(self._build_command('h'), endl='')
+            self._serial.write(self._build_command('h'), endl=ENDLINE)
         else:
-            self._serial.write(self._build_command('l'), endl='')
+            self._serial.write(self._build_command('l'), endl=ENDLINE)
 
     @log_to_debug
     def analog_read(self) -> float:
@@ -357,7 +427,7 @@ class Pin:
             raise IOError(f'Analog read is not supported in {self.mode}')
         if not self._supports_analog:
             raise IOError('Pin does not support analog read')
-        response = self._serial.query(self._build_command('a'), endl='')
+        response = self._serial.query(self._build_command('a'), endl=ENDLINE)
         # map the response from the ADC range to the voltage range
         return map_to_float(int(response), ADC_MIN, ADC_MAX, 0.0, 5.0)
 

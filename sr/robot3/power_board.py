@@ -6,17 +6,21 @@ import logging
 from enum import IntEnum
 from time import sleep
 from types import MappingProxyType
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 from serial.tools.list_ports import comports
 
 from .exceptions import IncorrectBoardError
 from .logging import log_to_debug
 from .serial_wrapper import SerialWrapper
-from .utils import Board, BoardIdentity, float_bounds_check, get_USB_identity
+from .utils import (
+    IN_SIMULATOR, Board, BoardIdentity, float_bounds_check,
+    get_simulator_boards, get_USB_identity,
+)
 
 logger = logging.getLogger(__name__)
 BAUDRATE = 115200  # Since the power board is a USB device, this is ignored
+_SLEEP_FN = sleep  # For use in the simulator
 
 
 class PowerOutputPosition(IntEnum):
@@ -132,20 +136,50 @@ class PowerBoard(Board):
                 f"expected {err.expected_type!r}. Ignoring this device")
             return None
         except Exception:
-            if initial_identity is not None and initial_identity.board_type == 'manual':
-                logger.warning(
-                    f"Manually specified power board at port {serial_port!r}, "
-                    "could not be identified. Ignoring this device")
-            else:
-                logger.warning(
-                    f"Found power board-like serial port at {serial_port!r}, "
-                    "but it could not be identified. Ignoring this device")
+            if initial_identity is not None:
+                if initial_identity.board_type == 'manual':
+                    logger.warning(
+                        f"Manually specified power board at port {serial_port!r}, "
+                        "could not be identified. Ignoring this device")
+                elif initial_identity.manufacturer == 'sbot_simulator':
+                    logger.warning(
+                        f"Simulator specified power board at port {serial_port!r}, "
+                        "could not be identified. Ignoring this device")
+
+            logger.warning(
+                f"Found power board-like serial port at {serial_port!r}, "
+                "but it could not be identified. Ignoring this device")
             return None
         return board
 
     @classmethod
+    def _get_simulator_boards(cls) -> MappingProxyType[str, PowerBoard]:
+        """
+        Get the simulator boards.
+
+        :return: A mapping of board serial numbers to boards.
+        """
+        boards = {}
+        # The filter here is the name of the emulated board in the simulator
+        for board_info in get_simulator_boards('PowerBoard'):
+
+            # Create board identity from the info given
+            initial_identity = BoardIdentity(
+                manufacturer='sbot_simulator',
+                board_type=board_info.type_str,
+                asset_tag=board_info.serial_number,
+            )
+            if (board := cls._get_valid_board(board_info.url, initial_identity)) is None:
+                continue
+
+            boards[board._identity.asset_tag] = board
+        return MappingProxyType(boards)
+
+    @classmethod
     def _get_supported_boards(
-        cls, manual_boards: Optional[list[str]] = None,
+        cls,
+        manual_boards: Optional[list[str]] = None,
+        sleep_fn: Optional[Callable[[float], None]] = None,
     ) -> MappingProxyType[str, PowerBoard]:
         """
         Find all connected power boards.
@@ -156,6 +190,12 @@ class PowerBoard(Board):
             to connect to, defaults to None
         :return: A mapping of serial numbers to power boards.
         """
+        if sleep_fn is not None:
+            global _SLEEP_FN
+            _SLEEP_FN = sleep_fn
+        if IN_SIMULATOR:
+            return cls._get_simulator_boards()
+
         boards = {}
         serial_ports = comports()
         for port in serial_ports:
@@ -507,7 +547,7 @@ class Piezo:
         self._serial.write(cmd)
 
         if blocking:
-            sleep(duration)
+            _SLEEP_FN(duration)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"

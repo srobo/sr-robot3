@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import itertools
 import logging
+import os
 import time
 from pathlib import Path
+from socket import socket
 from types import MappingProxyType
 from typing import Mapping, Optional
 
@@ -20,7 +22,8 @@ from .motor_board import MotorBoard
 from .power_board import Note, PowerBoard
 from .raw_serial import RawSerial
 from .servo_board import ServoBoard
-from .utils import ensure_atexit_on_term, obtain_lock, singular
+from .simulator.time_server import TimeServer
+from .utils import IN_SIMULATOR, ensure_atexit_on_term, obtain_lock, singular
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,7 @@ class Robot:
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
         '_arduinos', '_cameras', '_mqtt', '_astoria', '_kch', '_raw_ports',
+        '_time_server',
     )
 
     def __init__(
@@ -56,7 +60,15 @@ class Robot:
         manual_boards: Optional[dict[str, list[str]]] = None,
         raw_ports: Optional[list[tuple[str, int]]] = None,
     ) -> None:
-        self._lock = obtain_lock()
+        self._lock: TimeServer | socket | None
+        if IN_SIMULATOR:
+            self._lock = TimeServer.initialise()
+            if self._lock is None:
+                raise OSError(
+                    'Unable to obtain lock, Is another robot instance already running?'
+                )
+        else:
+            self._lock = obtain_lock()
         self._metadata: Optional[Metadata] = None
 
         setup_logging(debug, trace_logging)
@@ -64,7 +76,11 @@ class Robot:
 
         logger.info(f"sr.robot3 version {__version__}")
 
-        self._mqtt, self._astoria = init_astoria_mqtt()
+        if IN_SIMULATOR:
+            self._mqtt = None
+            self._astoria = None
+        else:
+            self._mqtt, self._astoria = init_astoria_mqtt()
 
         if manual_boards:
             self._init_power_board(manual_boards.get(PowerBoard.get_board_type(), []))
@@ -88,7 +104,7 @@ class Robot:
             defaults to None
         :raises RuntimeError: If exactly one PowerBoard is not found
         """
-        power_boards = PowerBoard._get_supported_boards(manual_boards)
+        power_boards = PowerBoard._get_supported_boards(manual_boards, sleep_fn=self.sleep)
         self._power_board = singular(power_boards)
 
         # Enable all the outputs, so that we can find other boards.
@@ -125,7 +141,10 @@ class Robot:
         self._servo_boards = ServoBoard._get_supported_boards(manual_servoboards)
         self._arduinos = Arduino._get_supported_boards(manual_arduinos, ignored_arduinos)
         if raw_ports:
-            self._raw_ports = RawSerial._get_supported_boards(raw_ports)
+            if not IN_SIMULATOR:
+                self._raw_ports = RawSerial._get_supported_boards(raw_ports)
+            else:
+                logger.warning("Raw ports are not available in the simulator.")
 
     def _init_camera(self) -> None:
         """
@@ -134,9 +153,15 @@ class Robot:
         These cameras are used for AprilTag detection and provide location data of
         markers in its field of view.
         """
+        if IN_SIMULATOR:
+            publish_fn = None
+        else:
+            assert self._mqtt is not None
+            publish_fn = self._mqtt.wrapped_publish
+
         self._cameras = MappingProxyType(_setup_cameras(
             game_specific.MARKER_SIZES,
-            self._mqtt.wrapped_publish,
+            publish_fn,
         ))
 
     def _log_connected_boards(self) -> None:
@@ -279,27 +304,35 @@ class Robot:
         """
         Sleep for a number of seconds.
 
-        This is a convenience method that can be used instead of time.sleep().
-        This exists for compatibility with the simulator API only.
+        This is a convenience method that should be used instead of time.sleep()
+        to make your code compatible with the simulator.
 
         :param secs: The number of seconds to sleep for
         """
-        time.sleep(secs)
+        if IN_SIMULATOR:
+            assert isinstance(self._lock, TimeServer)
+            self._lock.sleep(secs)
+        else:
+            time.sleep(secs)
 
     @log_to_debug
     def time(self) -> float:
         """
         Get the number of seconds since the Unix Epoch.
 
-        This is a convenience method that can be used instead of time.time().
-        This exists for compatibility with the simulator API only.
+        This is a convenience method that should be used instead of time.time()
+        to make your code compatible with the simulator.
 
         NOTE: The robot's clock resets each time the robot is restarted, so this
         will not be the correct actual time but can be used to measure elapsed time.
 
         :returns: the number of seconds since the Unix Epoch.
         """
-        return time.time()
+        if IN_SIMULATOR:
+            assert isinstance(self._lock, TimeServer)
+            return self._lock.get_time()
+        else:
+            return time.time()
 
     @property
     @log_to_debug
@@ -350,7 +383,11 @@ class Robot:
 
         :returns: path to the mountpoint of the USB code drive.
         """
-        return self._astoria.fetch_mount_path()
+        if IN_SIMULATOR:
+            return Path(os.environ['SBOT_USBKEY_PATH'])
+        else:
+            assert self._astoria is not None
+            return self._astoria.fetch_mount_path()
 
     @property
     def is_simulated(self) -> bool:
@@ -359,7 +396,7 @@ class Robot:
 
         :returns: True if the robot is simulated. False otherwise.
         """
-        return False
+        return IN_SIMULATOR
 
     @log_to_debug
     def wait_start(self) -> None:
@@ -371,25 +408,39 @@ class Robot:
         Once the start button is pressed, the metadata will be loaded and the timeout
         will start if in competition mode.
         """
+        def null_button_pressed() -> bool:
+            return False
+
+        if IN_SIMULATOR:
+            remote_start_pressed = null_button_pressed
+        else:
+            assert self._astoria is not None
+            remote_start_pressed = self._astoria.get_start_button_pressed
+
         # ignore previous button presses
         _ = self.power_board._start_button()
-        _ = self._astoria.get_start_button_pressed()
+        _ = remote_start_pressed()
         logger.info('Waiting for start button.')
 
         self.power_board.piezo.buzz(Note.A6, 0.1)
         self.power_board._run_led.flash()
         self.kch._flash_start()
 
-        while not (
-            self.power_board._start_button() or self._astoria.get_start_button_pressed()
-        ):
-            time.sleep(0.1)
+        while not self.power_board._start_button() or remote_start_pressed():
+            self.sleep(0.1)
         logger.info("Start signal received; continuing.")
         self.power_board._run_led.on()
         self.kch._start = False
 
-        # Load the latest metadata that we have received over MQTT
-        self._metadata = self._astoria.fetch_current_metadata()
+        if IN_SIMULATOR:
+            self._metadata = Metadata.parse_file(
+                Path(os.environ['SBOT_METADATA_PATH']) / 'astoria.json'
+            )
+        else:
+            assert self._astoria is not None
+            # Load the latest metadata that we have received over MQTT
+            self._metadata = self._astoria.fetch_current_metadata()
 
-        if self._metadata.game_timeout is not None:
+        # Simulator timeout is handled by the simulator supervisor
+        if self._metadata.game_timeout and not IN_SIMULATOR:
             timeout.kill_after_delay(self._metadata.game_timeout)
