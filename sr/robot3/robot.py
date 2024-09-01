@@ -43,11 +43,12 @@ class Robot:
     :param manual_boards: A dictionary of board types to a list of serial port paths
         to allow for connecting to boards that are not automatically detected, defaults to None
     :param raw_ports: A list of serial number, baudrate tuples to try connecting to.
+    :param no_powerboard: If True, initialize the robot without a powerboard, defaults to False
     """
     __slots__ = (
         '_lock', '_metadata', '_power_board', '_motor_boards', '_servo_boards',
         '_arduinos', '_cameras', '_mqtt', '_astoria', '_kch', '_raw_ports',
-        '_time_server',
+        '_time_server', '_no_powerboard',
     )
 
     def __init__(
@@ -59,6 +60,7 @@ class Robot:
         ignored_arduinos: Optional[list[str]] = None,
         manual_boards: Optional[dict[str, list[str]]] = None,
         raw_ports: Optional[list[tuple[str, int]]] = None,
+        no_powerboard: bool = False,
     ) -> None:
         self._lock: TimeServer | socket | None
         if IN_SIMULATOR:
@@ -70,6 +72,7 @@ class Robot:
         else:
             self._lock = obtain_lock()
         self._metadata: Optional[Metadata] = None
+        self._no_powerboard = no_powerboard
 
         setup_logging(debug, trace_logging)
         ensure_atexit_on_term()
@@ -104,6 +107,9 @@ class Robot:
             defaults to None
         :raises RuntimeError: If exactly one PowerBoard is not found
         """
+        if self._no_powerboard:
+            return
+
         power_boards = PowerBoard._get_supported_boards(manual_boards, sleep_fn=self.sleep)
         self._power_board = singular(power_boards)
 
@@ -170,8 +176,10 @@ class Robot:
 
         Firmware versions are also logged at debug level.
         """
+        # we only have one power board so make it iterable
+        power_board = [] if self._no_powerboard else [self.power_board]
         boards = itertools.chain(
-            [self.power_board],  # we only have one power board so make it iterable
+            power_board,
             self.motor_boards.values(),
             self.servo_boards.values(),
             self.arduinos.values(),
@@ -203,6 +211,9 @@ class Robot:
 
         :return: The power board object
         """
+        if self._no_powerboard:
+            raise RuntimeError("No power board was initialized")
+
         return self._power_board
 
     @property
@@ -411,6 +422,12 @@ class Robot:
         def null_button_pressed() -> bool:
             return False
 
+        if self._no_powerboard:
+            # null out the start button function
+            start_button_pressed = null_button_pressed
+        else:
+            start_button_pressed = self.power_board._start_button
+
         if IN_SIMULATOR:
             remote_start_pressed = null_button_pressed
         else:
@@ -418,18 +435,20 @@ class Robot:
             remote_start_pressed = self._astoria.get_start_button_pressed
 
         # ignore previous button presses
-        _ = self.power_board._start_button()
+        _ = start_button_pressed()
         _ = remote_start_pressed()
         logger.info('Waiting for start button.')
 
-        self.power_board.piezo.buzz(Note.A6, 0.1)
-        self.power_board._run_led.flash()
+        if not self._no_powerboard:
+            self.power_board.piezo.buzz(Note.A6, 0.1)
+            self.power_board._run_led.flash()
         self.kch._flash_start()
 
-        while not self.power_board._start_button() or remote_start_pressed():
+        while not start_button_pressed() or remote_start_pressed():
             self.sleep(0.1)
         logger.info("Start signal received; continuing.")
-        self.power_board._run_led.on()
+        if not self._no_powerboard:
+            self.power_board._run_led.on()
         self.kch._start = False
 
         if IN_SIMULATOR:
