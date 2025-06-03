@@ -7,7 +7,7 @@ import signal
 import socket
 from abc import ABC, abstractmethod
 from types import FrameType
-from typing import Any, Mapping, NamedTuple, Optional, TypeVar
+from typing import Any, Mapping, NamedTuple, Optional, Type, TypeVar
 
 from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
@@ -75,6 +75,18 @@ class Board(ABC):
         :return: The board's identity
         """
         pass  # pragma: no cover
+
+
+class FinalMeta(type):
+    """
+    A meta class which ensures a given class cannot be subclassed.
+
+    It's recommended to additionally use typing.final.
+    """
+    def __new__(cls, name: str, bases: tuple, classdict: dict) -> Type:
+        if bases:
+            raise TypeError(f"{name} cannot be sub-classed.")
+        return super().__new__(cls, name, bases, dict(classdict))
 
 
 def map_to_int(
