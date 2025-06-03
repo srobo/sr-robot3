@@ -339,9 +339,8 @@ class Pin:
         self._disabled = disabled
         self._mode = GPIOPinMode.INPUT
 
-    @property
     @log_to_debug
-    def mode(self) -> GPIOPinMode:
+    def get_mode(self) -> GPIOPinMode:
         """
         Get the mode of the pin.
 
@@ -353,9 +352,8 @@ class Pin:
         self._check_if_disabled()
         return self._mode
 
-    @mode.setter
     @log_to_debug(setter=True)
-    def mode(self, value: GPIOPinMode) -> None:
+    def set_mode(self, value: GPIOPinMode) -> None:
         """
         Set the mode of the pin.
 
@@ -386,8 +384,9 @@ class Pin:
         :return: The digital value of the pin.
         """
         self._check_if_disabled()
-        if self.mode not in DIGITAL_READ_MODES:
-            raise IOError(f'Digital read is not supported in {self.mode}')
+        mode = self.get_mode()
+        if mode not in DIGITAL_READ_MODES:
+            raise IOError(f'Digital read is not supported in {mode}')
         response = self._serial.query(self._build_command('r'), endl=ENDLINE)
         return response == 'h'
 
@@ -401,8 +400,9 @@ class Pin:
         :raises IOError: If this pin cannot be controlled.
         """
         self._check_if_disabled()
-        if self.mode not in DIGITAL_WRITE_MODES:
-            raise IOError(f'Digital write is not supported in {self.mode}')
+        mode = self.get_mode()
+        if mode not in DIGITAL_WRITE_MODES:
+            raise IOError(f'Digital write is not supported in {mode}')
         if value:
             self._serial.write(self._build_command('h'), endl=ENDLINE)
         else:
@@ -423,8 +423,9 @@ class Pin:
         ADC_MIN = 0
 
         self._check_if_disabled()
-        if self.mode not in ANALOG_READ_MODES:
-            raise IOError(f'Analog read is not supported in {self.mode}')
+        mode = self.get_mode()
+        if mode not in ANALOG_READ_MODES:
+            raise IOError(f'Analog read is not supported in {mode}')
         if not self._supports_analog:
             raise IOError('Pin does not support analog read')
         response = self._serial.query(self._build_command('a'), endl=ENDLINE)
@@ -471,25 +472,25 @@ if __name__ == '__main__':  # pragma: no cover
     for serial_num, board in arduinos.items():
         print(serial_num)
 
-        board.pins[4].mode = GPIOPinMode.INPUT
-        board.pins[4].mode = GPIOPinMode.INPUT_PULLUP
+        board.pins[4].set_mode(GPIOPinMode.INPUT)
+        board.pins[4].set_mode(GPIOPinMode.INPUT_PULLUP)
 
         # Digital write
-        board.pins[13].mode = GPIOPinMode.OUTPUT
+        board.pins[13].set_mode(GPIOPinMode.OUTPUT)
         board.pins[13].digital_write(True)
         digital_write_value = board.pins[13].digital_read()
         print(f'Set pin 13 to output and set to {digital_write_value}')
 
         # Digital read
-        board.pins[4].mode = GPIOPinMode.INPUT
+        board.pins[4].set_mode(GPIOPinMode.INPUT)
         digital_read_value = board.pins[4].digital_read()
         print(f'Input 4 = {digital_read_value}')
 
-        board.pins[5].mode = GPIOPinMode.INPUT_PULLUP
+        board.pins[5].set_mode(GPIOPinMode.INPUT_PULLUP)
         digital_read_value = board.pins[5].digital_read()
         print(f'Input 5 = {digital_read_value}')
 
         # Analog read
-        board.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
+        board.pins[AnalogPins.A0].set_mode(GPIOPinMode.INPUT)
         analog_read_value = board.pins[AnalogPins.A0].analog_read()
         print(f'Analog input A0 = {analog_read_value}')

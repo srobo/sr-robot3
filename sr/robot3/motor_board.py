@@ -218,7 +218,6 @@ class MotorBoard(Board):
         response = self._serial.query('*IDN?')
         return BoardIdentity(*response.split(':'))
 
-    @property
     @log_to_debug
     def status(self) -> MotorStatus:
         """
@@ -269,9 +268,8 @@ class Motor:
         self._serial = serial
         self._index = index
 
-    @property
     @log_to_debug
-    def power(self) -> float:
+    def get_power(self) -> float:
         """
         Read the current power setting of the motor.
 
@@ -288,9 +286,8 @@ class Motor:
             return MotorPower.COAST
         return map_to_float(value, -1000, 1000, -1.0, 1.0, precision=3)
 
-    @power.setter
     @log_to_debug(setter=True)
-    def power(self, value: float) -> None:
+    def set_power(self, value: float) -> None:
         """
         Set the power of the motor.
 
@@ -310,9 +307,8 @@ class Motor:
         setpoint = map_to_int(value, -1.0, 1.0, -1000, 1000)
         self._serial.write(f'MOT:{self._index}:SET:{setpoint}')
 
-    @property
     @log_to_debug
-    def current(self) -> float:
+    def get_current(self) -> float:
         """
         Read the current draw of the motor.
 
@@ -321,9 +317,8 @@ class Motor:
         response = self._serial.query(f'MOT:{self._index}:I?')
         return float(response) / 1000
 
-    @property
     @log_to_debug
-    def in_fault(self) -> bool:
+    def is_in_fault(self) -> bool:
         """
         Check if the motor is in a fault state.
 

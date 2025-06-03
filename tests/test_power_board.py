@@ -92,19 +92,19 @@ def test_power_board(powerboard_serial: MockPowerBoard) -> None:
     assert power_board.identify().sw_version == "4.4.1"
 
     # Test that we can get the power board total current
-    assert power_board.battery_sensor.current == 1.234
+    assert power_board.battery_sensor.current() == 1.234
 
     # Test that we can get the power board total voltage
-    assert power_board.battery_sensor.voltage == 12.45
+    assert power_board.battery_sensor.voltage() == 12.45
 
     # Test that we can get the power board temperature
-    assert power_board.status.temperature == 39
+    assert power_board.status().temperature == 39
 
     # Test that we can get the power board fan status
-    assert power_board.status.fan_running is False
+    assert power_board.status().fan_running is False
 
     # Test that we can get the power board regulator voltage
-    assert power_board.status.regulator_voltage == 5.234
+    assert power_board.status().regulator_voltage == 5.234
 
     # Test that we can get the power board start button status
     assert power_board._start_button() is True
@@ -182,22 +182,24 @@ def test_power_board_outputs(powerboard_serial: MockPowerBoard) -> None:
         ("OUT:6:SET:1", "ACK"),
         ("OUT:6:SET:0", "ACK"),
     ])
-    power_board.outputs[PowerOutputPosition.H0].is_enabled = True
-    power_board.outputs[PowerOutputPosition.H0].is_enabled = False
-    power_board.outputs[PowerOutputPosition.H1].is_enabled = True
-    power_board.outputs[PowerOutputPosition.H1].is_enabled = False
-    power_board.outputs[PowerOutputPosition.L0].is_enabled = True
-    power_board.outputs[PowerOutputPosition.L0].is_enabled = False
-    power_board.outputs[PowerOutputPosition.L1].is_enabled = True
-    power_board.outputs[PowerOutputPosition.L1].is_enabled = False
-    power_board.outputs[PowerOutputPosition.L3].is_enabled = True
-    power_board.outputs[PowerOutputPosition.L3].is_enabled = False
-    power_board.outputs[PowerOutputPosition.FIVE_VOLT].is_enabled = True
-    power_board.outputs[PowerOutputPosition.FIVE_VOLT].is_enabled = False
+    power_board.outputs[PowerOutputPosition.H0].power_on()
+    power_board.outputs[PowerOutputPosition.H0].power_off()
+    power_board.outputs[PowerOutputPosition.H1].power_on()
+    power_board.outputs[PowerOutputPosition.H1].power_off()
+    power_board.outputs[PowerOutputPosition.L0].power_on()
+    power_board.outputs[PowerOutputPosition.L0].power_off()
+    power_board.outputs[PowerOutputPosition.L1].power_on()
+    power_board.outputs[PowerOutputPosition.L1].power_off()
+    power_board.outputs[PowerOutputPosition.L3].power_on()
+    power_board.outputs[PowerOutputPosition.L3].power_off()
+    power_board.outputs[PowerOutputPosition.FIVE_VOLT].power_on()
+    power_board.outputs[PowerOutputPosition.FIVE_VOLT].power_off()
 
-    # Test that we can't enable or disable the brain output
+    # Test that we can't powered on or off the brain output
     with pytest.raises(RuntimeError, match=r"Brain output cannot be controlled.*"):
-        power_board.outputs[PowerOutputPosition.L2].is_enabled = True
+        power_board.outputs[PowerOutputPosition.L2].power_on()
+    with pytest.raises(RuntimeError, match=r"Brain output cannot be controlled.*"):
+        power_board.outputs[PowerOutputPosition.L2].power_off()
 
     # Test that we can detect whether the power board outputs are enabled
     powerboard_serial.serial_wrapper._add_responses([
@@ -209,13 +211,13 @@ def test_power_board_outputs(powerboard_serial: MockPowerBoard) -> None:
         ("OUT:5:GET?", "1"),
         ("OUT:6:GET?", "1"),
     ])
-    assert power_board.outputs[PowerOutputPosition.H0].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.H1].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.L0].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.L1].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.L2].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.L3].is_enabled is True
-    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].is_enabled is True
+    assert power_board.outputs[PowerOutputPosition.H0].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.H1].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.L0].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.L1].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.L2].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.L3].is_on() is True
+    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].is_on() is True
 
     # Test that we can detect whether the power board outputs are overcurrent
     powerboard_serial.serial_wrapper._add_responses([
@@ -227,13 +229,13 @@ def test_power_board_outputs(powerboard_serial: MockPowerBoard) -> None:
         ("*STATUS?", "0,1,0,1,0,1,0:39:0:5234"),
         ("*STATUS?", "0,1,0,1,0,1,0:39:0:5234"),
     ])
-    assert power_board.outputs[PowerOutputPosition.H0].overcurrent is False
-    assert power_board.outputs[PowerOutputPosition.H1].overcurrent is True
-    assert power_board.outputs[PowerOutputPosition.L0].overcurrent is False
-    assert power_board.outputs[PowerOutputPosition.L1].overcurrent is True
-    assert power_board.outputs[PowerOutputPosition.L2].overcurrent is False
-    assert power_board.outputs[PowerOutputPosition.L3].overcurrent is True
-    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].overcurrent is False
+    assert power_board.outputs[PowerOutputPosition.H0].is_overcurrent() is False
+    assert power_board.outputs[PowerOutputPosition.H1].is_overcurrent() is True
+    assert power_board.outputs[PowerOutputPosition.L0].is_overcurrent() is False
+    assert power_board.outputs[PowerOutputPosition.L1].is_overcurrent() is True
+    assert power_board.outputs[PowerOutputPosition.L2].is_overcurrent() is False
+    assert power_board.outputs[PowerOutputPosition.L3].is_overcurrent() is True
+    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].is_overcurrent() is False
 
     # Test that we can detect output current
     powerboard_serial.serial_wrapper._add_responses([
@@ -245,13 +247,13 @@ def test_power_board_outputs(powerboard_serial: MockPowerBoard) -> None:
         ("OUT:5:I?", "1600"),
         ("OUT:6:I?", "1700"),
     ])
-    assert power_board.outputs[PowerOutputPosition.H0].current == 1.1
-    assert power_board.outputs[PowerOutputPosition.H1].current == 1.2
-    assert power_board.outputs[PowerOutputPosition.L0].current == 1.3
-    assert power_board.outputs[PowerOutputPosition.L1].current == 1.4
-    assert power_board.outputs[PowerOutputPosition.L2].current == 1.5
-    assert power_board.outputs[PowerOutputPosition.L3].current == 1.6
-    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].current == 1.7
+    assert power_board.outputs[PowerOutputPosition.H0].current() == 1.1
+    assert power_board.outputs[PowerOutputPosition.H1].current() == 1.2
+    assert power_board.outputs[PowerOutputPosition.L0].current() == 1.3
+    assert power_board.outputs[PowerOutputPosition.L1].current() == 1.4
+    assert power_board.outputs[PowerOutputPosition.L2].current() == 1.5
+    assert power_board.outputs[PowerOutputPosition.L3].current() == 1.6
+    assert power_board.outputs[PowerOutputPosition.FIVE_VOLT].current() == 1.7
 
 
 def test_power_board_cleanup(powerboard_serial: MockPowerBoard) -> None:

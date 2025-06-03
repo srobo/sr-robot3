@@ -234,7 +234,6 @@ class ServoBoard(Board):
         """
         self._serial.write('*RESET')
 
-    @property
     @log_to_debug
     def current(self) -> float:
         """
@@ -247,7 +246,6 @@ class ServoBoard(Board):
         response = self._serial.query('SERVO:I?')
         return float(response) / 1000
 
-    @property
     @log_to_debug
     def voltage(self) -> float:
         """
@@ -324,9 +322,8 @@ class Servo:
         """
         return self._duty_min, self._duty_max
 
-    @property
     @log_to_debug
-    def position(self) -> Optional[float]:
+    def get_position(self) -> Optional[float]:
         """
         Get the position of the servo.
 
@@ -340,9 +337,8 @@ class Servo:
             return None
         return map_to_float(data, self._duty_min, self._duty_max, -1.0, 1.0, precision=3)
 
-    @position.setter
-    @log_to_debug(setter=True)
-    def position(self, value: Optional[float]) -> None:
+    @log_to_debug
+    def set_position(self, value: Optional[float]) -> None:
         """
         Set the position of the servo.
 
