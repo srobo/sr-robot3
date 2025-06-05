@@ -139,3 +139,9 @@ def test_robot_discovery() -> None:
     assert robot.power_board == robot.boards[power_asset_tag]
     assert robot.servo_board == robot.boards[servo_asset_tag]
     assert robot.motor_board == robot.boards[motor_asset_tag]
+
+
+def test_cannot_subclass() -> None:
+    with pytest.raises(TypeError, match="Robot cannot be sub-classed"):
+        class MyRobot(Robot):
+            pass

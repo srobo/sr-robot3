@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from socket import socket
 from types import MappingProxyType
-from typing import Mapping, Optional
+from typing import Mapping, Optional, final
 
 from . import game_specific, timeout
 from ._version import __version__
@@ -23,12 +23,15 @@ from .power_board import Note, PowerBoard
 from .raw_serial import RawSerial
 from .servo_board import ServoBoard
 from .simulator.time_server import TimeServer
-from .utils import IN_SIMULATOR, ensure_atexit_on_term, obtain_lock, singular
+from .utils import (
+    IN_SIMULATOR, FinalMeta, ensure_atexit_on_term, obtain_lock, singular,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class Robot:
+@final
+class Robot(metaclass=FinalMeta):
     """
     The main robot class that provides access to all the boards.
 
