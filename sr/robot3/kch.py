@@ -122,13 +122,7 @@ class KCH:
                 LED() for _ in RobotLEDs.user_leds()
             )
 
-    @property
-    def _start(self) -> bool:
-        """Get the state of the start LED."""
-        return GPIO.input(RobotLEDs.START) if HAS_HAT else False
-
-    @_start.setter
-    def _start(self, value: bool) -> None:
+    def _set_start_led(self, value: bool) -> None:
         """Set the state of the start LED."""
         if HAS_HAT:
             if self._pwm:
@@ -159,40 +153,11 @@ class LED:
     """
     __slots__ = ('_led',)
 
-    @property
-    def r(self) -> bool:
-        """Get the state of the Red LED segment."""
-        return False
-
-    @r.setter
-    def r(self, value: bool) -> None:
-        """Set the state of the Red LED segment."""
-
-    @property
-    def g(self) -> bool:
-        """Get the state of the Green LED segment."""
-        return False
-
-    @g.setter
-    def g(self, value: bool) -> None:
-        """Set the state of the Green LED segment."""
-
-    @property
-    def b(self) -> bool:
-        """Get the state of the Blue LED segment."""
-        return False
-
-    @b.setter
-    def b(self, value: bool) -> None:
-        """Set the state of the Blue LED segment."""
-
-    @property
-    def colour(self) -> tuple[bool, bool, bool]:
+    def get_colour(self) -> tuple[bool, bool, bool]:
         """Get the colour of the user LED."""
         return False, False, False
 
-    @colour.setter
-    def colour(self, value: tuple[bool, bool, bool]) -> None:
+    def set_colour(self, value: tuple[bool, bool, bool]) -> None:
         """Set the colour of the user LED."""
         if not isinstance(value, (tuple, list)) or len(value) != 3:
             raise ValueError("The LED requires 3 values for it's colour")
@@ -209,38 +174,7 @@ class PhysicalLED(LED):
     def __init__(self, led: tuple[int, int, int]):
         self._led = led
 
-    @property
-    def r(self) -> bool:
-        """Get the state of the Red LED segment."""
-        return GPIO.input(self._led[0])
-
-    @r.setter
-    def r(self, value: bool) -> None:
-        """Set the state of the Red LED segment."""
-        GPIO.output(self._led[0], GPIO.HIGH if value else GPIO.LOW)
-
-    @property
-    def g(self) -> bool:
-        """Get the state of the Green LED segment."""
-        return GPIO.input(self._led[1])
-
-    @g.setter
-    def g(self, value: bool) -> None:
-        """Set the state of the Green LED segment."""
-        GPIO.output(self._led[1], GPIO.HIGH if value else GPIO.LOW)
-
-    @property
-    def b(self) -> bool:
-        """Get the state of the Blue LED segment."""
-        return GPIO.input(self._led[2])
-
-    @b.setter
-    def b(self, value: bool) -> None:
-        """Set the state of the Blue LED segment."""
-        GPIO.output(self._led[2], GPIO.HIGH if value else GPIO.LOW)
-
-    @property
-    def colour(self) -> tuple[bool, bool, bool]:
+    def get_colour(self) -> tuple[bool, bool, bool]:
         """Get the colour of the user LED."""
         return (
             GPIO.input(self._led[0]),
@@ -248,8 +182,7 @@ class PhysicalLED(LED):
             GPIO.input(self._led[2]),
         )
 
-    @colour.setter
-    def colour(self, value: tuple[bool, bool, bool]) -> None:
+    def set_colour(self, value: tuple[bool, bool, bool]) -> None:
         """Set the colour of the user LED."""
         if not isinstance(value, (tuple, list)) or len(value) != 3:
             raise ValueError("The LED requires 3 values for it's colour")
@@ -364,49 +297,11 @@ class SimulationLED(LED):
         self._led_num = led_num
         self._server = server
 
-    @property
-    def r(self) -> bool:
-        """Get the state of the Red LED segment."""
-        return self._server.get_leds(self._led_num)[0]
-
-    @r.setter
-    def r(self, value: bool) -> None:
-        """Set the state of the Red LED segment."""
-        # Fetch the current state of the LED so we can update only the red value
-        current = self._server.get_leds(self._led_num)
-        self._server.set_leds(self._led_num, (value, current[1], current[2]))
-
-    @property
-    def g(self) -> bool:
-        """Get the state of the Green LED segment."""
-        return self._server.get_leds(self._led_num)[1]
-
-    @g.setter
-    def g(self, value: bool) -> None:
-        """Set the state of the Green LED segment."""
-        # Fetch the current state of the LED so we can update only the green value
-        current = self._server.get_leds(self._led_num)
-        self._server.set_leds(self._led_num, (current[0], value, current[2]))
-
-    @property
-    def b(self) -> bool:
-        """Get the state of the Blue LED segment."""
-        return self._server.get_leds(self._led_num)[2]
-
-    @b.setter
-    def b(self, value: bool) -> None:
-        """Set the state of the Blue LED segment."""
-        # Fetch the current state of the LED so we can update only the blue value
-        current = self._server.get_leds(self._led_num)
-        self._server.set_leds(self._led_num, (current[0], current[1], value))
-
-    @property
-    def colour(self) -> tuple[bool, bool, bool]:
+    def get_colour(self) -> tuple[bool, bool, bool]:
         """Get the colour of the user LED."""
         return self._server.get_leds(self._led_num)
 
-    @colour.setter
-    def colour(self, value: tuple[bool, bool, bool]) -> None:
+    def ste_colour(self, value: tuple[bool, bool, bool]) -> None:
         """Set the colour of the user LED."""
         if not isinstance(value, (tuple, list)) or len(value) != 3:
             raise ValueError("The LED requires 3 values for it's colour")

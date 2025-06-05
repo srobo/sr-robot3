@@ -266,7 +266,6 @@ class PowerBoard(Board):
         response = self._serial.query('*IDN?')
         return BoardIdentity(*response.split(':'))
 
-    @property
     @log_to_debug
     def status(self) -> PowerStatus:
         """
@@ -344,7 +343,7 @@ class Outputs:
         for output in self._outputs:
             if output._index == BRAIN_OUTPUT:
                 continue
-            output.is_enabled = False
+            output.power_off()
 
     @log_to_debug
     def power_on(self) -> None:
@@ -352,7 +351,7 @@ class Outputs:
         for output in self._outputs:
             if output._index == BRAIN_OUTPUT:
                 continue
-            output.is_enabled = True
+            output.power_on()
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__}: {self._serial}>"
@@ -371,13 +370,12 @@ class Output:
         self._serial = serial
         self._index = index
 
-    @property
     @log_to_debug
-    def is_enabled(self) -> bool:
+    def is_on(self) -> bool:
         """
-        Return whether the output is enabled.
+        Return whether the output is on.
 
-        Outputs are enabled at startup, but will be disabled if the output draws
+        Outputs are on at startup, but will be turned off if the output draws
         too much current.
 
         :return: Whether the output is enabled.
@@ -385,26 +383,29 @@ class Output:
         response = self._serial.query(f'OUT:{self._index}:GET?')
         return response == '1'
 
-    @is_enabled.setter
-    @log_to_debug(setter=True)
-    def is_enabled(self, value: bool) -> None:
+    @log_to_debug
+    def power_on(self) -> None:
         """
-        Set whether the output is enabled.
+        Power on the output.
 
-        Outputs that have been disabled due to overcurrent will not be enabled,
+        Outputs that have been turned off due to overcurrent will not be powered on,
         but will not raise an error.
-
-        :param value: Whether the output should be enabled.
         """
         if self._index == BRAIN_OUTPUT:
             # Changing the brain output will also raise a NACK from the firmware
             raise RuntimeError("Brain output cannot be controlled via this API.")
-        if value:
-            self._serial.write(f'OUT:{self._index}:SET:1')
-        else:
-            self._serial.write(f'OUT:{self._index}:SET:0')
+        self._serial.write(f'OUT:{self._index}:SET:1')
 
-    @property
+    @log_to_debug
+    def power_off(self) -> None:
+        """
+        Power off the output.
+        """
+        if self._index == BRAIN_OUTPUT:
+            # Changing the brain output will also raise a NACK from the firmware
+            raise RuntimeError("Brain output cannot be controlled via this API.")
+        self._serial.write(f'OUT:{self._index}:SET:0')
+
     @log_to_debug
     def current(self) -> float:
         """
@@ -417,9 +418,8 @@ class Output:
         response = self._serial.query(f'OUT:{self._index}:I?')
         return float(response) / 1000
 
-    @property
     @log_to_debug
-    def overcurrent(self) -> bool:
+    def is_overcurrent(self) -> bool:
         """
         Return whether the output is in an overcurrent state.
 
@@ -486,7 +486,6 @@ class BatterySensor:
     def __init__(self, serial: SerialWrapper):
         self._serial = serial
 
-    @property
     @log_to_debug
     def voltage(self) -> float:
         """
@@ -497,7 +496,6 @@ class BatterySensor:
         response = self._serial.query('BATT:V?')
         return float(response) / 1000
 
-    @property
     @log_to_debug
     def current(self) -> float:
         """

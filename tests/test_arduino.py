@@ -91,17 +91,17 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     ])
 
     with pytest.raises(IOError):
-        arduino.pins[2].mode = 1
+        arduino.pins[2].set_mode(1)
 
     # Test that we can set the mode of a pin
-    arduino.pins[2].mode = GPIOPinMode.OUTPUT
-    arduino.pins[10].mode = GPIOPinMode.INPUT_PULLUP
-    arduino.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
+    arduino.pins[2].set_mode(GPIOPinMode.OUTPUT)
+    arduino.pins[10].set_mode(GPIOPinMode.INPUT_PULLUP)
+    arduino.pins[AnalogPins.A0].set_mode(GPIOPinMode.INPUT)
 
     # Test that we can get the mode of a pin
-    assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
-    assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
-    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
+    assert arduino.pins[2].get_mode() == GPIOPinMode.OUTPUT
+    assert arduino.pins[10].get_mode() == GPIOPinMode.INPUT_PULLUP
+    assert arduino.pins[AnalogPins.A0].get_mode() == GPIOPinMode.INPUT
 
     # Test that we can get the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
@@ -133,7 +133,7 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     with pytest.raises(IOError, match=r"Analog read is not supported.*"):
         arduino.pins[2].analog_read()
 
-    arduino.pins[11].mode = GPIOPinMode.INPUT
+    arduino.pins[11].set_mode(GPIOPinMode.INPUT)
     with pytest.raises(IOError, match=r"Pin does not support analog read"):
         arduino.pins[11].analog_read()
     # 4.888 = round((5 / 1023) * 1000, 3)
