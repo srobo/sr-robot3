@@ -23,6 +23,7 @@ check_untyped_defs = true
 atomic = true
 balanced_wrapping = true
 known_first_party = "sr.robot3"
+skip_gitignore = true
 
 # hanging grid grouped indent style wrapping
 multi_line_output = 5
