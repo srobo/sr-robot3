@@ -40,8 +40,8 @@ class GPIOPinMode(str, Enum):
     OUTPUT = 'OUTPUT'
 
 
-class AnalogPins(IntEnum):
-    """The analog pins on the Arduino."""
+class AnalogPin(IntEnum):
+    """An analog pin on the Arduino."""
     A0 = 14
     A1 = 15
     A2 = 16
@@ -490,6 +490,6 @@ if __name__ == '__main__':  # pragma: no cover
         print(f'Input 5 = {digital_read_value}')
 
         # Analog read
-        board.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
-        analog_read_value = board.pins[AnalogPins.A0].analog_read()
+        board.pins[AnalogPin.A0].mode = GPIOPinMode.INPUT
+        analog_read_value = board.pins[AnalogPin.A0].analog_read()
         print(f'Analog input A0 = {analog_read_value}')
