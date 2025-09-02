@@ -6,6 +6,7 @@ and for handling port timeouts and disconnections.
 """
 from __future__ import annotations
 
+import atexit
 import logging
 import sys
 import threading
@@ -105,6 +106,8 @@ class SerialWrapper:
             write_timeout=timeout,
             do_not_open=True,
         )
+
+        atexit.register(self._disconnect)
 
     def start(self) -> None:
         """
