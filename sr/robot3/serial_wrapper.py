@@ -107,7 +107,7 @@ class SerialWrapper:
             do_not_open=True,
         )
 
-        atexit.register(self._disconnect)
+        atexit.register(self._disconnect, quiet=True)
 
     def start(self) -> None:
         """
@@ -233,7 +233,7 @@ class SerialWrapper:
         )
         return True
 
-    def _disconnect(self) -> None:
+    def _disconnect(self, quiet: bool = False) -> None:
         """
         Close the class's serial port.
 
@@ -241,9 +241,10 @@ class SerialWrapper:
         The serial port will be reopened on the next message.
         """
         self.serial.close()
-        logger.warning(
-            f'Board {self.identity.board_type}:{self.identity.asset_tag} disconnected'
-        )
+        if not quiet:
+            logger.warning(
+                f'Board {self.identity.board_type}:{self.identity.asset_tag} disconnected'
+            )
 
     def set_identity(self, identity: BoardIdentity) -> None:
         """
