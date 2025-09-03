@@ -51,7 +51,7 @@ authors = [{name = "Student Robotics", email =  "kit-team@studentrobotics.org"}]
 readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "pyserial >=3,<4",
     "april_vision==3.0.0",
@@ -77,8 +77,7 @@ Documentation = "https://docs.studentrobotics.org"
 dev = [
     "flake8",
     "isort",
-    "mypy==1.10.0; python_version<'3.9'",
-    "mypy>=1.7,<2; python_version>='3.9'",
+    "mypy>=1.7,<2",
     "build",
     "types-pyserial",
     "pytest",
