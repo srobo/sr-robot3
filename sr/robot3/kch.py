@@ -25,8 +25,8 @@ BAUDRATE = 115200
 
 
 @unique
-class RobotLEDs(IntEnum):
-    """Mapping of LEDs to GPIO Pins."""
+class RobotLEDPin(IntEnum):
+    """Pin for a corresponding LED channel"""
 
     START = 9
 
@@ -92,7 +92,7 @@ class KCH:
                 # If this is not the first time the code is run this init will
                 # cause a warning as the gpio are already initialized, we can
                 # suppress this as we know the reason behind the warning
-                GPIO.setup(RobotLEDs.all_leds(), GPIO.OUT, initial=GPIO.LOW)
+                GPIO.setup(RobotLEDPin.all_leds(), GPIO.OUT, initial=GPIO.LOW)
             self._pwm: Optional[GPIO.PWM] = None
 
             # We are not running cleanup so the LED state persists after the code completes,
@@ -101,31 +101,31 @@ class KCH:
 
             # Cleanup just the start LED to turn it off when the code exits
             # Mypy isn't aware of the version of atexit.register(func, *args)
-            atexit.register(GPIO.cleanup, RobotLEDs.START)  # type: ignore[call-arg]
+            atexit.register(GPIO.cleanup, RobotLEDPin.START)  # type: ignore[call-arg]
 
             self._leds = tuple(
-                PhysicalLED(rgb_led) for rgb_led in RobotLEDs.user_leds()
+                PhysicalLED(rgb_led) for rgb_led in RobotLEDPin.user_leds()
             )
         elif IN_SIMULATOR:
             led_server = LedServer.initialise()
             if led_server is not None:
                 self._leds = tuple(
                     SimulationLED(v, led_server)
-                    for v in range(len(RobotLEDs.user_leds()))
+                    for v in range(len(RobotLEDPin.user_leds()))
                 )
             else:
                 self._leds = tuple(
-                    LED() for _ in RobotLEDs.user_leds()
+                    LED() for _ in RobotLEDPin.user_leds()
                 )
         else:
             self._leds = tuple(
-                LED() for _ in RobotLEDs.user_leds()
+                LED() for _ in RobotLEDPin.user_leds()
             )
 
     @property
     def _start(self) -> bool:
         """Get the state of the start LED."""
-        return GPIO.input(RobotLEDs.START) if HAS_HAT else False
+        return GPIO.input(RobotLEDPin.START) if HAS_HAT else False
 
     @_start.setter
     def _start(self, value: bool) -> None:
@@ -135,12 +135,12 @@ class KCH:
                 # stop any flashing the LED is doing
                 self._pwm.stop()
                 self._pwm = None
-            GPIO.output(RobotLEDs.START, GPIO.HIGH if value else GPIO.LOW)
+            GPIO.output(RobotLEDPin.START, GPIO.HIGH if value else GPIO.LOW)
 
     def _flash_start(self) -> None:
         """Set the start LED flashing at 1Hz."""
         if HAS_HAT:
-            self._pwm = GPIO.PWM(RobotLEDs.START, 1)
+            self._pwm = GPIO.PWM(RobotLEDPin.START, 1)
             self._pwm.start(50)
 
     @property
