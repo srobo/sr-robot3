@@ -1,4 +1,4 @@
-from .arduino import AnalogPins, GPIOPinMode
+from .arduino import AnalogPin, GPIOPinMode
 from .astoria import RobotMode
 from .exceptions import (
     BoardDisconnectionError, MetadataKeyError, MetadataNotReadyError,
@@ -16,12 +16,12 @@ add_trace_level()
 BRAKE = MotorPower.BRAKE
 COAST = MotorPower.COAST
 
-A0 = AnalogPins.A0
-A1 = AnalogPins.A1
-A2 = AnalogPins.A2
-A3 = AnalogPins.A3
-A4 = AnalogPins.A4
-A5 = AnalogPins.A5
+A0 = AnalogPin.A0
+A1 = AnalogPin.A1
+A2 = AnalogPin.A2
+A3 = AnalogPin.A3
+A4 = AnalogPin.A4
+A5 = AnalogPin.A5
 
 COMP = RobotMode.COMP
 DEV = RobotMode.DEV

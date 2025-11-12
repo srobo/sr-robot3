@@ -10,7 +10,7 @@ from typing import NamedTuple
 
 import pytest
 
-from sr.robot3.arduino import AnalogPins, Arduino, GPIOPinMode
+from sr.robot3.arduino import AnalogPin, Arduino, GPIOPinMode
 from sr.robot3.utils import BoardIdentity, singular
 
 from .conftest import MockSerialWrapper
@@ -96,12 +96,12 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     # Test that we can set the mode of a pin
     arduino.pins[2].mode = GPIOPinMode.OUTPUT
     arduino.pins[10].mode = GPIOPinMode.INPUT_PULLUP
-    arduino.pins[AnalogPins.A0].mode = GPIOPinMode.INPUT
+    arduino.pins[AnalogPin.A0].mode = GPIOPinMode.INPUT
 
     # Test that we can get the mode of a pin
     assert arduino.pins[2].mode == GPIOPinMode.OUTPUT
     assert arduino.pins[10].mode == GPIOPinMode.INPUT_PULLUP
-    assert arduino.pins[AnalogPins.A0].mode == GPIOPinMode.INPUT
+    assert arduino.pins[AnalogPin.A0].mode == GPIOPinMode.INPUT
 
     # Test that we can get the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
@@ -111,7 +111,7 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     ])
     assert arduino.pins[2].digital_read() is True
     assert arduino.pins[10].digital_read() is False
-    assert arduino.pins[AnalogPins.A0].digital_read() is True
+    assert arduino.pins[AnalogPin.A0].digital_read() is True
 
     # Test that we can set the digital value of a pin
     arduino_serial.serial_wrapper._add_responses([
@@ -123,7 +123,7 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
         arduino.pins[10].digital_write(False)
     with pytest.raises(IOError, match=r"Digital write is not supported.*"):
-        arduino.pins[AnalogPins.A0].digital_write(True)
+        arduino.pins[AnalogPin.A0].digital_write(True)
 
     # Test that we can get the analog value of a pin
     arduino_serial.serial_wrapper._add_responses([
@@ -137,7 +137,7 @@ def test_arduino_pins(arduino_serial: MockArduino) -> None:
     with pytest.raises(IOError, match=r"Pin does not support analog read"):
         arduino.pins[11].analog_read()
     # 4.888 = round((5 / 1023) * 1000, 3)
-    assert arduino.pins[AnalogPins.A0].analog_read() == 4.888
+    assert arduino.pins[AnalogPin.A0].analog_read() == 4.888
 
 
 def test_invalid_properties(arduino_serial: MockArduino) -> None:
