@@ -90,10 +90,10 @@ def test_servo_board(servoboard_serial: MockServoBoard) -> None:
     servo_board.reset()
 
     # Test that we can get the servo board servo current
-    assert servo_board.current == 1.234
+    assert servo_board.current() == 1.234
 
     # Test that we can get the servo board servo voltage
-    assert servo_board.voltage == 5.432
+    assert servo_board.voltage() == 5.432
 
 
 def test_servo_board_servos(servoboard_serial: MockServoBoard) -> None:
@@ -122,23 +122,23 @@ def test_servo_board_servos(servoboard_serial: MockServoBoard) -> None:
     assert servo_board.servos[0].get_duty_limits() == (1000, 1100)
 
     # Test that we can set the servo duty cycle
-    servo_board.servos[0].position = 0
-    servo_board.servos[1].position = 0
+    servo_board.servos[0].set_position(0)
+    servo_board.servos[1].set_position(0)
 
-    servo_board.servos[0].position = -1.0
-    servo_board.servos[1].position = -1.0
-    servo_board.servos[0].position = 1.0
-    servo_board.servos[1].position = 1.0
+    servo_board.servos[0].set_position(-1.0)
+    servo_board.servos[1].set_position(-1.0)
+    servo_board.servos[0].set_position(1.0)
+    servo_board.servos[1].set_position(1.0)
 
     # Test that we can get the servo duty cycle
-    assert servo_board.servos[0].position == -0.5
-    assert servo_board.servos[1].position == 0.5
+    assert servo_board.servos[0].get_position() == -0.5
+    assert servo_board.servos[1].get_position() == 0.5
 
     # Test that we can disable the servo
     servo_board.servos[0].disable()
-    assert servo_board.servos[0].position is None
-    servo_board.servos[1].position = None
-    assert servo_board.servos[1].position is None
+    assert servo_board.servos[0].get_position() is None
+    servo_board.servos[1].set_position(None)
+    assert servo_board.servos[1].get_position() is None
 
 
 def test_servo_board_bounds_checking(servoboard_serial: MockServoBoard) -> None:
@@ -151,29 +151,29 @@ def test_servo_board_bounds_checking(servoboard_serial: MockServoBoard) -> None:
 
     # invalid servo number
     with pytest.raises(IndexError):
-        servo_board.servos[20].position = 0
+        servo_board.servos[20].set_position(0)
 
     # invalid servo number type
     with pytest.raises(TypeError):
-        servo_board.servos['a'].position = 0
+        servo_board.servos['a'].set_position(0)
     with pytest.raises(TypeError):
-        servo_board.servos[0.1].position = 0
+        servo_board.servos[0.1].set_position(0)
     with pytest.raises(TypeError):
-        servo_board.servos[None].position = 0
+        servo_board.servos[None].set_position(0)
 
     # invalid servo value
     with pytest.raises(ValueError):
-        servo_board.servos[0].position = -1.1
+        servo_board.servos[0].set_position(-1.1)
     with pytest.raises(ValueError):
-        servo_board.servos[0].position = 1.1
+        servo_board.servos[0].set_position(1.1)
     with pytest.raises(ValueError):
-        servo_board.servos[0].position = -100
+        servo_board.servos[0].set_position(-100)
 
     # invalid servo value type
     with pytest.raises(TypeError):
-        servo_board.servos[0].position = 'a'
+        servo_board.servos[0].set_position('a')
     with pytest.raises(TypeError):
-        servo_board.servos[0].position = {}
+        servo_board.servos[0].set_position({})
 
     # duty cycle limits
     with pytest.raises(ValueError):

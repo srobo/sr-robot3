@@ -452,7 +452,7 @@ class Robot(metaclass=FinalMeta):
         logger.info("Start signal received; continuing.")
         if not self._no_powerboard:
             self.power_board._run_led.on()
-        self.kch._start = False
+        self.kch._set_start_led(False)
 
         if IN_SIMULATOR:
             self._metadata = Metadata.parse_file(
